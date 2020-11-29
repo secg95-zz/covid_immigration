@@ -26,12 +26,14 @@ valorEsperado=function(par1=3.169434, par2=5.163921, distribucion="gamma"){
   t=integrate(f_t,0,Inf)$value
   return(t)
 }
+
 EKF_FS=function(y,x, par1,par2,par3){
   a=as.matrix(par1)
   P=list()
   dz=list()
   Fmat=list()
   v=list()
+  C = list()
   
   P[[1]]=diag(par2)
   
@@ -75,6 +77,92 @@ EKF_FS=function(y,x, par1,par2,par3){
   }
   return(list(alpha=alpha,a=a,P=P,logL=logLikelihood))
 }
+
+UKF_FS=function(y,x, par1,par2,par3, m=3){
+  
+  a=as.matrix(par1)
+  P=list()
+  v=list()
+  a_tts = list()
+  P[[1]]=diag(par2)
+  Tmat=diag(3)
+  Tmat[1,3]=1
+  Q=diag(par3)
+  
+  #Heuristic 
+  k = 3 - m
+  sizeY=length(y)
+  for(i in 1:sizeY){
+    a_t=a[,i]
+    # revisar ?? 
+    P_t=P[[i]]
+    P_aux = chol(P_t)
+    sigmas = rep(0, 2*m + 1)
+    x_t0 = a_t
+    sigmas[1] = x_t0
+    w = rep(0, 2*m + 1) 
+    for(i in 1:m){
+      P_ti = P_aux[[i]]
+      x_ti = a_t + sqrt(m + k)*P_ti
+      x_im = a_t - sqrt(m + k)*P_ti
+      sigmas[i + 1] = x_ti
+      sigmas[(2*m)*(i) + 1] = x_im
+      w_0 = k/(k + m)
+      w[i + 1] = 1/(2*(m + k))
+      w[(2*m)*(i) + 1] =  1/(2*(m + k))
+    }
+
+    y_t_expected = c(0,0,0)
+    for (i in 1:(2*m)+1){
+      z_ti  =  c( exp(x_ti[1])*(x[i]+ exp(x_ti[2])), exp(x_ti[1])*exp(x_ti[2]),0)
+      y_t_expected = y_t_expected + w[i]*z_ti
+    }
+
+    P_alphavt = 0
+    for(i in 1:(2*m)+1){
+      z_ti  =  c(exp(x_ti[1])*(x[i]+ exp(x_ti[2])),exp(x_ti[1])*exp(x_ti[2]),0)
+      P_alphavt = P_alphavt + w[i]*((x_t[i] - a_t)%*%(z_ti - y_t_expected))
+    }
+
+    P_vvt = as.matrix(par1)
+    for(i in 1:(2*m)+1){
+      z_ti  =  c(exp(x_ti[1])*(x[i]+ exp(x_ti[2])),exp(x_ti[1])*exp(x_ti[2]),0)
+      P_vvt = P_vvt + w[i]((z_ti - y_t_expected)%*%t(z_ti - y_t_expected))
+    }
+    v_t = y_t - y_t_expected
+    a_tt=a_t+P_alphavt%*%(P_vvt^-1)%*%v_t
+    a_tts[[i]] = a_tt
+    P_tt=P_t-P_alphavt%*%t(P_vvt^-1)%*%t(P_alphavt)
+    for(i in 1:(2*m)+1){
+      a_t1 = a_t1 + Tmat%*%x_t[i]
+    }
+
+    for(i in 1:(2*m)+1){
+      P_t1 =  P_t1 + w[i](Tmat%*%x_t[i]%*%t(Tmat%*%x_t[i])) + w[i]*Q
+    }
+    a=cbind(a,a_t1)
+    P[[i+1]]=P_t1
+    v[[i]]=v_t
+  }
+  
+    #smoothing
+    alpha=matrix(0,3,sizeY)
+    for(i in rev(2:sizeY)){
+      C_t1 = matrix(0,3,1)
+      for(i in 1:(2*m)+1){
+        C_t1 = C_t1 + w[i]*((x_t[i] - a_t)%*%t(Tmat%*%x_t[i] - a_t1))
+      }
+      alpha[,i - 1] = a_tts[[i - 1]] + C_t1%*%(P[[i]]^-1)%*%(alpha[,i] - a[[i]])
+    }
+    
+    logLikelihood=sum(dpois(y,exp(alpha[1,])*(x+exp(alpha[2,])), log=TRUE))
+    for(i in 1:sizeY){
+      logLikelihood=logLikelihood+if(i>0){dmvnorm(alpha[,i], mean=a[,i], sigma=P[[i]], log=TRUE)}else{dmvnorm(alpha[,i], mean=Tmat%*%alpha[,i-1], sigma=Q, log=TRUE)}
+    }
+    return(list(alpha=alpha,a=a,P=P,logL=logLikelihood))
+}
+
+
 inicializadorLogLik=function(y,x, par1,par2,par3){
   pars=c(par1,par2,par3)
   obj = function(par) {
@@ -101,6 +189,16 @@ EKF_Complete=function(y,x, par1,par2,par3){
   EKF=EKF_FS(y,x, parm$par1,parm$par2,parm$par3)
   return(EKF)
 }
+
+UKF_Complete=function(y,x, par1,par2,par3){
+  parm=inicializadorLogLik(y,x, par1,par2,par3)
+  UKF=UKF_FS(y,x, parm$par1,parm$par2,parm$par3)
+  return(UKF)
+}
+
+
+
+
 betaStateSpace=function(base=base, initialCases=initialCases, lags=7, lags2=5, par1_inc=3.169434, par2_inc=5.163921, par1_inf=24.206087, par2_inf=2.984198, distribucion_inc, distribucion_inf, CI=0.95){
   omega=weightConstructionIncubacionInfeccion(lags, par1_inf, par2_inf, distribucion_inf)
   f=weightConstructionIncubacion(lags2, par1_inc, par2_inc, distribucion_inf)
