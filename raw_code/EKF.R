@@ -101,15 +101,16 @@ EKF_Complete=function(y,x, par1,par2,par3){
   EKF=EKF_FS(y,x, parm$par1,parm$par2,parm$par3)
   return(EKF)
 }
-betaStateSpace=function(base=base, initialCases=initialCases, lags=7, lags2=5, par1_inc=3.169434, par2_inc=5.163921, par1_inf=24.206087, par2_inf=2.984198, distribucion_inc, distribucion_inf, CI=0.95){
+betaStateSpace=function(base, initialCases, distribucion_inc, distribucion_inf, lags=7, lags2=5, par1_inc=3.169434, par2_inc=5.163921, par1_inf=24.206087, par2_inf=2.984198, CI=0.95){
+  print('1')
   omega=weightConstructionIncubacionInfeccion(lags, par1_inf, par2_inf, distribucion_inf)
   f=weightConstructionIncubacion(lags2, par1_inc, par2_inc, distribucion_inf)
   
   priorMean=3/sum(omega)
   
-  cases=base$newCases
+  cases=base
   initialVector=initialCases
-  
+  print(length(cases))
   #Dependiente
   casesMatrix_T=matrix(0,length(cases)-lags2+1,lags2)
   for(i in 1:dim(casesMatrix_T)[1]){
@@ -162,11 +163,12 @@ betaStateSpace=function(base=base, initialCases=initialCases, lags=7, lags2=5, p
   expectedCasesUB=qpois((1-(1-CI)/2),exp(alpha[1,])*(x+exp(alpha[2,])))
   
   data=as.data.frame(cbind(betaLB,beta,betaUB,migrationLB,migration,migrationUB,expectedCasesLB,expectedCases,expectedCasesUB,y))
-
-  data$R=data$beta*sum(omega)
-  data$Rlb=data$lb*sum(omega)
-  data$Rub=data$ub*sum(omega)
   
+  data$R=data$beta*sum(omega)
+  #data$Rlb=data$lb*sum(omega)
+  #data$Rub=data$ub*sum(omega)
+  
+  print('2')
   
   #R_Caso
   lb=data$betaLB
@@ -177,15 +179,15 @@ betaStateSpace=function(base=base, initialCases=initialCases, lags=7, lags2=5, p
   longCasesbeta=c(rep(beta[1], length=lags-1),beta)
   
   data$R_c=data$beta*sum(omega)
-  data$R_clb=data$lb*sum(omega)
-  data$R_cub=data$ub*sum(omega)    
-  
-  for(i in 1:dim(betaT)[1]){
-    data$R_c[i]=sum(longCasesbeta[i:(i+lags-1)]*omega)
-    data$R_clb[i]=sum(longCaseslb[i:(i+lags-1)]*omega)      
-    data$R_cub[i]=sum(longCasesub[i:(i+lags-1)]*omega)      
+  #data$R_clb=data$lb*sum(omega)
+  #data$R_cub=data$ub*sum(omega)    
+  #why not betaT?
+  #for(i in 1:dim(beta)[1]){
+   # data$R_c[i]=sum(longCasesbeta[i:(i+lags-1)]*omega)
+    #data$R_clb[i]=sum(longCaseslb[i:(i+lags-1)]*omega)      
+    #data$R_cub[i]=sum(longCasesub[i:(i+lags-1)]*omega)      
     
-  }
+  #}
   
   
   return(list(data=data))
