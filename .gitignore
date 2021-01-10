@@ -1,1 +1,4 @@
+.DS_Store
 .Rhistory
+# Keep simulation results out of repo
+results/
