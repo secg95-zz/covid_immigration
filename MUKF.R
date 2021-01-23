@@ -4,6 +4,8 @@ library(mvtnorm)
 library(nloptr)
 library(reshape2)
 library(np)
+library(geometry) 
+
 
 #Funciones: 
 weightConstructionIncubacionInfeccion=function(lags=7, par1_inf=24.206087, par2_inf=2.984198, distribucion_inf ){
@@ -101,18 +103,33 @@ UKF_FS=function(y,x, par1,par2,par3, m=3){
     sigmas = list()
     x_t0 = a_t
     sigmas[[1]] = x_t0
-    w = rep(0, 2*m + 1) 
-    for(j in 1:m){
+    #arreglar x, Z y ybarra son univariados
+    sample_points = c(-0.7, -0.5, 0.5, 0.7) 
+    phis = dnorm(sample_points, mean = 0, sd = 1, log = FALSE)
+    aux = dot(phis, sample_points^4)
+    aux_2 = dot(phis, sample_points^2)
+    w_0 = 1 - ((sum(phis)*aux)/(3*aux_2)^2)
+    lambda_square = sum(phis)/((1 - w_0)*aux_2)
+    w = list()
+    w[[1]] = w_0
+    m = 4/2
+    for(j in 1:3){
       P_ti = P_aux[[j]]
-      x_ti = a_t + sqrt(m + k)*P_ti
-      x_im = a_t - sqrt(m + k)*P_ti
-      sigmas[[j + 1]] = x_ti
-      sigmas[[(m + j) + 1]] = x_im
-      w[1] = k/(k + m)
-      w[j + 1] = 1/(2*(m + k))
-      w[m + j + 1] =  1/(2*(m + k))
+      x_ti = rep(0, length(sample_points))
+      for (k in 1:(4/2)){
+        print(j*k + 1)
+        print((j*k + 4/2) + 1)
+        w[[j*k + 1]] = (1-w_0)*phis[k]/(2*m*sum(phis))
+        w[[(j*k + 4/2) + 1]] = (1-w_0)*phis[k]/(2*m*sum(phis))
+        x_ti = a_t + sqrt(lambda_square)*sample_points[k]*P_ti
+        x_im = a_t - sqrt(lambda_square)*sample_points[k]*P_ti
+        sigmas[[j*k + 1]] = x_ti
+        sigmas[[(j*k + 4/2) + 1]] = x_im
+      }
+      
     }
-
+    print(sigmas)
+    print(w)
     samples_x[[i]] = sigmas
     y_t_expected = c(0,0,0)
     for (j in 1:(2*m)+1){
@@ -120,7 +137,7 @@ UKF_FS=function(y,x, par1,par2,par3, m=3){
       z_ti  =  c( exp(x_ti[1])*(x[i]+ exp(x_ti[2])), exp(x_ti[1])*exp(x_ti[2]),0)
       y_t_expected = y_t_expected + w[j]*z_ti
     }
-
+    
     P_alphavt = 0
     for(j in 1:(2*m)+1){
       xti = sigmas[j]
@@ -146,18 +163,7 @@ UKF_FS=function(y,x, par1,par2,par3, m=3){
     sigmas_n = list()
     x_t0 = a_tt
     sigmas_n[[1]] = x_t0
-    w = rep(0, 2*m + 1) 
-    for(j in 1:m){
-      P_ti = P_tt[[j]]
-      x_ti = a_tt + sqrt(m + k)*P_ti
-      x_im = a_tt - sqrt(m + k)*P_ti
-      sigmas_n[[j + 1]] = x_ti
-      sigmas_n[[(m + j) + 1]] = x_im
-      w[1] = k/(k + m)
-      w[j + 1] = 1/(2*(m + k))
-      w[m + j + 1] =  1/(2*(m + k))
-    }
-    
+   
     a_t1=0
     for(j in 1:(2*m)+1){
       xti = sigmas_n[j]
@@ -173,27 +179,27 @@ UKF_FS=function(y,x, par1,par2,par3, m=3){
     v[[i]]=v_t
   }
   
-    #smoothing
-    alpha=matrix(0,3,sizeY)
-    for(i in rev(2:sizeY)){
-      C_t1 = 0
-      sigmas = samples_x[i]
-      for(j in 1:(2*m)+1){
-        xti = sigmas[j]
-        C_t1 = C_t1 + w[i]*((x_ti - a_t)%*%t(Tmat%*%x_ti - a[i]))
-      }
-      alpha[,i - 1] = a_tts[[i - 1]] + C_t1%*%(P[[i]]^-1)%*%(alpha[,i] - a[i])
+  #smoothing
+  alpha=matrix(0,3,sizeY)
+  for(i in rev(2:sizeY)){
+    C_t1 = 0
+    sigmas = samples_x[i]
+    for(j in 1:(2*m)+1){
+      xti = sigmas[j]
+      C_t1 = C_t1 + w[i]*((x_ti - a_t)%*%t(Tmat%*%x_ti - a[i]))
     }
-    
-    logLikelihood=sum(dpois(y,exp(alpha[1,])*(x+exp(alpha[2,])), log=TRUE))
-    for(i in 1:sizeY){
-      logLikelihood=logLikelihood+if(i>0){dmvnorm(alpha[,i], mean=a[,i], sigma=P[[i]], log=TRUE)}else{dmvnorm(alpha[,i], mean=Tmat%*%alpha[,i-1], sigma=Q, log=TRUE)}
-    }
-    return(list(alpha=alpha,a=a,P=P,logL=logLikelihood))
+    alpha[,i - 1] = a_tts[[i - 1]] + C_t1%*%(P[[i]]^-1)%*%(alpha[,i] - a[i])
+  }
+  
+  logLikelihood=sum(dpois(y,exp(alpha[1,])*(x+exp(alpha[2,])), log=TRUE))
+  for(i in 1:sizeY){
+    logLikelihood=logLikelihood+if(i>0){dmvnorm(alpha[,i], mean=a[,i], sigma=P[[i]], log=TRUE)}else{dmvnorm(alpha[,i], mean=Tmat%*%alpha[,i-1], sigma=Q, log=TRUE)}
+  }
+  return(list(alpha=alpha,a=a,P=P,logL=logLikelihood))
 }
 
 
- inicializadorLogLik=function(y,x, par1,par2,par3){
+inicializadorLogLik=function(y,x, par1,par2,par3){
   pars=c(par1,par2,par3)
   obj = function(par) {
     par1=par[1:3]
@@ -273,7 +279,7 @@ betaStateSpace=function(base, initialCases, distribucion_inc, distribucion_inf, 
     alphaLB=rbind(alphaLB,c(a1[1],a2[1],a3[1]))
     alphaUB=rbind(alphaUB,c(a1[2],a2[2],a3[2]))
   }
-
+  
   betaLB=exp(alphaLB[,1])
   beta=exp(alpha[1,])
   betaUB=exp(alphaUB[,1])
@@ -285,7 +291,7 @@ betaStateSpace=function(base, initialCases, distribucion_inc, distribucion_inf, 
   expectedCasesUB=qpois((1-(1-CI)/2),exp(alpha[1,])*(x+exp(alpha[2,])))
   
   data=as.data.frame(cbind(betaLB,beta,betaUB,migrationLB,migration,migrationUB,expectedCasesLB,expectedCases,expectedCasesUB,y))
-
+  
   data$R=data$beta*sum(omega)
   data$Rlb=data$lb*sum(omega)
   data$Rub=data$ub*sum(omega)
@@ -307,7 +313,7 @@ betaStateSpace=function(base, initialCases, distribucion_inc, distribucion_inf, 
   #  data$R_c[i]=sum(longCasesbeta[i:(i+lags-1)]*omega)
   #  data$R_clb[i]=sum(longCaseslb[i:(i+lags-1)]*omega)      
   #  data$R_cub[i]=sum(longCasesub[i:(i+lags-1)]*omega)      
-    
+  
   #}
   
   

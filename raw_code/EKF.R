@@ -192,3 +192,4 @@ betaStateSpace=function(base, initialCases, distribucion_inc, distribucion_inf, 
   
   return(list(data=data))
 }
+
