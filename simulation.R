@@ -1,3 +1,5 @@
+source("discretize_dist.R")
+
 simulate_weibull = function(initial_cases, time_span, si_scale, si_shape, R) {
   discrete_weibull = diff(pweibull(0:time_span, shape=si_shape, scale=si_scale))
   I = initial_cases
@@ -27,8 +29,8 @@ simulate_with_immigrants = function(
   1. I[t], the incidences at t, is a Poisson variable.
   2. X[t], the arriving infectious immigrants at time t, is a Poisson variable.
   3. An infectious immigrant arriving at t may have become infectious within a
-     fixed window previous to their arrival, and their time of infection is
-     uniformly distributed within that window.
+     window of length `ìmm_infectious_period` previous to their arrival, and
+     their time of infection is uniformly distributed within that window.
      
   Parameters
   ----------
@@ -56,21 +58,16 @@ simulate_with_immigrants = function(
     Series of arriving infectious immigrants.
   XI : double
     Incidence series of immigrants. This one is longer than the other series,
-    but matches with then on the right end. For example, the last elements of
+    but matches with them on the right end. In other words, the last elements of
     all series represent the same point in time.
   "
   imm_infection_window = 5
-  if (si_dist == "weibull") {
-    discrete_si = diff(pweibull(
-      0:(time_span + imm_infection_window), shape=si_shape, scale=si_scale
-    ))
-  } else if (si_dist == "gamma") {
-    discrete_si = diff(pgamma(
-      0:(time_span + imm_infection_window), shape=si_shape, scale=si_scale
-    ))
-  } else {
-    stop(paste("SI distribution `", si_dist, "` unavailable."))
-  }
+  discrete_si = discretize_dist(
+    si_dist = si_dist,
+    si_shape = si_shape,
+    si_scale = si_scale,
+    n_vals = time_span + imm_infection_window
+  )
   I = 0
   X = initial_cases # Immigrant arrival series
   XI = rep(0, imm_infection_window) # Immigrant incidence series
