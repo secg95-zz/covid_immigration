@@ -21,8 +21,7 @@ simulate_gamma = function(initial_cases, time_span, si_scale, si_shape, R) {
 }
 
 simulate_with_immigrants = function(
-  si_dist="weibull", si_shape, si_scale, initial_cases, time_span,
-  immigration_rate, R
+  discrete_si, initial_cases, time_span, immigration_rate, R
 ) {
   "
   Simulates an incidence series with immigrants in which
@@ -34,12 +33,9 @@ simulate_with_immigrants = function(
      
   Parameters
   ----------
-  si_dist : character
-    Distribution of the serial interval. `weibull` and `gamma` are available.
-  si_shape : double
-    Shape parameter of the serial interval.
-  si_scale : double
-    Scale parameter of the serial interval.
+  discrete_si : double
+    Discretized distribution of the serial interval. discretete_si[i + 1] :=
+    probability of serial interval = i.
   initial_cases : integer
     Number of infectious immigrants arriving at the begining of the epidemic.
   time_span : integer
@@ -51,7 +47,6 @@ simulate_with_immigrants = function(
     
   Returns
   -------
-  All received parameters as well as
   I : double
     Series of incidences.
   X : double
@@ -62,12 +57,6 @@ simulate_with_immigrants = function(
     all series represent the same point in time.
   "
   imm_infection_window = 5
-  discrete_si = discretize_dist(
-    si_dist = si_dist,
-    si_shape = si_shape,
-    si_scale = si_scale,
-    n_vals = time_span + imm_infection_window
-  )
   I = 0
   X = initial_cases # Immigrant arrival series
   XI = rep(0, imm_infection_window) # Immigrant incidence series
@@ -91,10 +80,7 @@ simulate_with_immigrants = function(
   }
   return(
     list(
-      "I"=I, "XI"=XI, "X"=X,
-      "si_dist"=si_dist, "si_shape"=si_shape, "si_scale"=si_scale,
-      "initial_cases"=initial_cases, "time_span"=time_span,
-      "immigration_rate"=immigration_rate, "R"=R
+      "I"=I, "XI"=XI, "X"=X
     )
   )
 }
