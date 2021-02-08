@@ -16,6 +16,8 @@ R_hat : double
 '
 library(EpiEstim)
 
+source("raw_code/EKF.R")
+
 epiestim = function(I, discrete_si) {
   R_hat = estimate_R(
     incid = I,
@@ -43,4 +45,21 @@ epiestim_immigration = function(I, XI, discrete_si) {
   }
   return(R_hat)
 }
-ekf = function(I, si_dist, si_scale, si_shape) {}
+ekf = function(I, discrete_si) {
+  lags = 7
+  lags2 = 5
+  cases = I
+  casesMatrix_T=matrix(0,length(cases)-lags2+1,lags2)
+  for(i in 1:dim(casesMatrix_T)[1]){
+    casesMatrix_T[i,]=cases[i:(i+lags2-1)]
+  }
+  # x_nicolas[i] = x[i + 5]
+  # x_nicolas=t(casesMatrix_T %*% discrete_si[5:1])
+  x = overall_infectivity(I, c(0, discrete_si))
+  par1=c(0,0,0)
+  par2=10^6*c(1,1,1)
+  par3=c(1,1,1)
+  EKF=EKF_Complete(I[2:50], x[2:50], par1,par2,par3)
+  R_hat = exp(EKF$a[1,])
+  return(R_hat)
+}

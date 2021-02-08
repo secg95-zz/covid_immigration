@@ -1,5 +1,5 @@
 "
-Simulates several epidemics with the same parameters and gathers goodness of fit
+Simulate several epidemics with the same parameters and gathers goodness of fit
 metrics for the available models.
 "
 library(RJSONIO)
@@ -33,7 +33,7 @@ discrete_si = discretize_dist(
 results = list(
   mean_mape_epiestim = 0,
   mean_mape_epiestim_immigration = 0,
-  simulation_results = NULL
+  mean_mape_ekf = 0
 )
 for (epidemic in 1:config$n_epidemics) {
   # Simulate epidemic
@@ -54,14 +54,20 @@ for (epidemic in 1:config$n_epidemics) {
     XI = simulation$XI,
     discrete_si = discrete_si
   )
+  R_ekf = est$ekf(
+    I = simulation$I,
+    discrete_si = discrete_si
+  )
   # Collect results
   simulation_results = list(
     I = simulation$I,
     XI = simulation$XI,
     R_epiestim = R_epiestim,
     R_epiestim_immigration = R_epiestim_immigration,
+    R_ekf = R_ekf,
     mape_epiestim = mape(config$R, R_epiestim),
-    mape_epiestim_immigration = mape(config$R, R_epiestim_immigration)
+    mape_epiestim_immigration = mape(config$R, R_epiestim_immigration),
+    mape_ekf = mape(config$R, R_ekf)
   )
   results$simulations[[epidemic]] = simulation_results
   results$mean_mape_epiestim =
@@ -69,9 +75,12 @@ for (epidemic in 1:config$n_epidemics) {
   results$mean_mape_epiestim_immigration =
     results$mean_mape_epiestim_immigration +
     simulation_results$mape_epiestim_immigration
+  results$mean_mape_ekf =
+    results$mean_mape_ekf + simulation_results$mape_ekf
 }
 results$mean_mape_epiestim = results$mean_mape_epiestim / config$n_epidemics
 results$mean_mape_epiestim_immigration = results$mean_mape_epiestim_immigration / config$n_epidemics
+results$mean_mape_ekf = results$mean_mape_ekf / config$n_epidemics
 # Store results in disk
 summary = list(parameters = config, results = results)
 dir.create(OUT_DIR, recursive=TRUE)
