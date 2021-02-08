@@ -85,4 +85,4 @@ results$mean_mape_ekf = results$mean_mape_ekf / config$n_epidemics
 summary = list(parameters = config, results = results)
 dir.create(OUT_DIR, recursive=TRUE)
 timestamp = format(Sys.time(), "%Y%m%d%H%M")
-write(toJSON(summary), paste0(OUT_DIR, "/", timestamp, ".json"))
+write(toJSON(summary, pretty=TRUE), paste0(OUT_DIR, "/", timestamp, ".json"))

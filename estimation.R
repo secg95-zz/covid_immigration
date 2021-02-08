@@ -61,5 +61,10 @@ ekf = function(I, discrete_si) {
   par3=c(1,1,1)
   EKF=EKF_Complete(I[2:50], x[2:50], par1,par2,par3)
   R_hat = exp(EKF$a[1,])
+  for (i in 1:length(R_hat)) {
+    if (R_hat[i] == Inf | R_hat[i] == -Inf) {
+      R_hat[i] = NaN
+    }
+  }
   return(R_hat)
 }
