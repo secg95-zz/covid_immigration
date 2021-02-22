@@ -10,7 +10,7 @@ source("discretize_dist.R")
 OUT_DIR = "results"
 
 config = list(
-  n_epidemics = 100,
+  n_epidemics = 5,
   si_dist="weibull",
   si_shape = 3,
   si_scale = 3,
@@ -28,7 +28,7 @@ discrete_si = discretize_dist(
   si_dist = config$si_dist,
   si_shape = config$si_shape,
   si_scale = config$si_scale,
-  n_vals = config$n_epidemics
+  n_vals = config$time_span + 3
 )
 results = list(
   mean_mape_epiestim = 0,
@@ -54,7 +54,7 @@ for (epidemic in 1:config$n_epidemics) {
     XI = simulation$XI,
     discrete_si = discrete_si
   )
-  R_ekf = est$ekf(
+  ekf_result = est$ekf(
     I = simulation$I,
     discrete_si = discrete_si
   )
@@ -62,27 +62,40 @@ for (epidemic in 1:config$n_epidemics) {
   simulation_results = list(
     I = simulation$I,
     XI = simulation$XI,
-    R_epiestim = R_epiestim,
-    R_epiestim_immigration = R_epiestim_immigration,
-    R_ekf = R_ekf,
-    mape_epiestim = mape(config$R, R_epiestim),
-    mape_epiestim_immigration = mape(config$R, R_epiestim_immigration),
-    mape_ekf = mape(config$R, R_ekf)
+    epiestim = list(
+      R_hat = R_epiestim,
+      mape = mape(config$R, R_epiestim)
+    ),
+    epiestim_immigration = list(
+      R_hat = R_epiestim_immigration,
+      mape = mape(config$R, R_epiestim_immigration)
+    ),
+    ekf = list(
+      R_hat = ekf_result$R_hat,
+      mape = mape(config$R, ekf_result$R_hat),
+      a = ekf_result$a,
+      P = ekf_result$P,
+      alpha = ekf_result$alpha
+    )
   )
   results$simulations[[epidemic]] = simulation_results
   results$mean_mape_epiestim =
-    results$mean_mape_epiestim + simulation_results$mape_epiestim
+    results$mean_mape_epiestim + simulation_results$epiestim$mape
   results$mean_mape_epiestim_immigration =
     results$mean_mape_epiestim_immigration +
-    simulation_results$mape_epiestim_immigration
+    simulation_results$epiestim_immigration$mape
   results$mean_mape_ekf =
-    results$mean_mape_ekf + simulation_results$mape_ekf
+    results$mean_mape_ekf + simulation_results$ekf$mape
 }
 results$mean_mape_epiestim = results$mean_mape_epiestim / config$n_epidemics
 results$mean_mape_epiestim_immigration = results$mean_mape_epiestim_immigration / config$n_epidemics
 results$mean_mape_ekf = results$mean_mape_ekf / config$n_epidemics
 # Store results in disk
-summary = list(parameters = config, results = results)
+summary = list(
+  parameters = config,
+  results = results,
+  discrete_si = discrete_si
+)
 dir.create(OUT_DIR, recursive=TRUE)
 timestamp = format(Sys.time(), "%Y%m%d%H%M")
 write(toJSON(summary, pretty=TRUE), paste0(OUT_DIR, "/", timestamp, ".json"))
