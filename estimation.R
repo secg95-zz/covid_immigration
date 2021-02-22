@@ -72,8 +72,12 @@ ekf = function(I, discrete_si) {
   par2=10^6*c(1,1,1)
   par3=c(1,1,1)
   EKF=EKF_Complete(I[2:50], x[2:50], par1,par2,par3)
+  # Pad resulting series to their expected lenghts
+  alpha = matrix(NA, nrow=dim(EKF$alpha)[1], ncol=length(I))
+  alpha[,(length(I) - dim(EKF$alpha)[2] + 1):length(I)] = EKF$alpha
   # R_hat = exp(EKF$a[1,])
-  R_hat = c(rep(NaN, length(I) - dim(EKF$alpha)[2]), exp(EKF$alpha[1,]))
+  R_hat = exp(alpha[1,])
+  # Change infinity to NaN to prevent json storage bugs
   for (i in 1:length(R_hat)) {
     if (!is.na(R_hat[i]) & (R_hat[i] == Inf | R_hat[i] == -Inf)) {
       R_hat[i] = NaN
@@ -83,7 +87,7 @@ ekf = function(I, discrete_si) {
     R_hat=R_hat,
     a=lapply(seq_len(ncol(EKF$a)), function(i) EKF$a[,i]),
     P=EKF$P,
-    alpha=lapply(seq_len(ncol(EKF$alpha)), function(i) EKF$alpha[,i])
+    alpha=lapply(seq_len(ncol(alpha)), function(i) alpha[,i])
   ))
 }
 

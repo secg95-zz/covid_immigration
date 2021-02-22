@@ -5,7 +5,7 @@ Visualize the resulting estimation of the R series of performed tests (from
 library(RJSONIO)
 library(ggplot2)
 
-test = fromJSON("results/202102211844.json", nullValue = NaN, null = NaN)
+test = fromJSON("results/202102220822.json", nullValue = NaN, null = NaN)
 # Read the results of a random simulation
 simulation_results = sample(test$results$simulations, 1)[[1]]
 # Build dataframe for ggplot
