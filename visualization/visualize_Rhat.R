@@ -1,5 +1,6 @@
 "
-Visualize the results of performed tests (from `test.R`).
+Visualize the resulting estimation of the R series of performed tests (from
+`test.R`).
 "
 library(RJSONIO)
 library(ggplot2)
