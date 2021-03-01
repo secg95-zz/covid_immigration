@@ -27,58 +27,8 @@ valorEsperado=function(par1=3.169434, par2=5.163921, distribucion="gamma"){
   return(t)
 }
 
-EKF_FS=function(y,x, par1,par2,par3){
-  a=as.matrix(par1)
-  P=list()
-  dz=list()
-  Fmat=list()
-  v=list()
-  C = list()
-  
-  P[[1]]=diag(par2)
-  
-  Tmat=diag(3)
-  Tmat[1,3]=1
-  Q=diag(par3)
-  
-  #Filtering
-  sizeY=length(y)
-  for(i in 1:sizeY){
-    a_t=a[,i]
-    P_t=P[[i]]
-    v_t=y[i]-exp(a_t[1])*(x[i]+exp(a_t[2]))
-    dz_t=t(as.matrix(c(exp(a_t[1])*(x[i]+exp(a_t[2])),exp(a_t[1])*exp(a_t[2]),0)))
-    F_t=dz_t%*%P_t%*%t(dz_t)
-    a_tt=a_t+P_t%*%t(dz_t)%*%(F_t^-1)%*%v_t
-    P_tt=P_t-P_t%*%t(dz_t)%*%(F_t^-1)%*%dz_t%*%P_t
-    a_t1=Tmat%*%a_tt
-    P_t1=Tmat%*%P_tt%*%t(Tmat)+Q
-    a=cbind(a,a_t1)
-    P[[i+1]]=P_t1
-    dz[[i]]=dz_t
-    Fmat[[i]]=F_t
-    v[[i]]=v_t
-  }
-  
-  #Smoothing
-  r=matrix(0,3,1)
-  alpha=matrix(0,3,sizeY)
-  for(i in rev(1:sizeY)){
-    K_t=Tmat%*%P[[i]]%*%t(dz[[i]])%*%( Fmat[[i]]^-1)
-    L_t=Tmat-K_t%*%dz[[i]]
-    r_tm=t(dz[[i]])%*%( Fmat[[i]]^-1)%*% v[[i]]+t(L_t)%*%r
-    alpha[,i]=a[,i]+P[[i]]%*%r_tm
-    r=r_tm
-  }
-  
-  logLikelihood=sum(dpois(y,exp(alpha[1,])*(x+exp(alpha[2,])), log=TRUE))
-  for(i in 1:sizeY){
-    logLikelihood=logLikelihood+if(i>0){dmvnorm(alpha[,i], mean=a[,i], sigma=P[[i]], log=TRUE)}else{dmvnorm(alpha[,i], mean=Tmat%*%alpha[,i-1], sigma=Q, log=TRUE)}
-  }
-  return(list(alpha=alpha,a=a,P=P,logL=logLikelihood))
-}
-
 UKF_FS=function(y,x, par1,par2,par3, m=3){
+  print(y)
   a=as.matrix(par1)
   P=list()
   v=list()
@@ -87,19 +37,17 @@ UKF_FS=function(y,x, par1,par2,par3, m=3){
   Tmat=diag(3)
   Tmat[1,3]=1
   Q=diag(par3)
-  
   #Heuristic 
   k = 5 - m
   sizeY=length(y)
   samples_x = list()
   for(i in 1:sizeY){
     a_t=a[,i]
-    # revisar ?? 
     P_t=P[[i]]
-    print(P_t)
     P_aux = chol(P_t)
     sigmas = list()
     x_t0 = a_t
+ 
     sigmas[[1]] = x_t0
     w = rep(0, 2*m + 1) 
     for(j in 1:m){
@@ -114,82 +62,79 @@ UKF_FS=function(y,x, par1,par2,par3, m=3){
     }
 
     samples_x[[i]] = sigmas
-    y_t_expected = c(0,0,0)
+    y_t_expected = 0
     for (j in 1:(2*m)+1){
-      xti = sigmas[j]
-      z_ti  =  c( exp(x_ti[1])*(x[i]+ exp(x_ti[2])), exp(x_ti[1])*exp(x_ti[2]),0)
+      xti = sigmas[[j]]
+      z_ti = exp(xti[1])*(x[i]+ exp(xti[2]))
       y_t_expected = y_t_expected + w[j]*z_ti
     }
-
+    print(y_t_expected)
     P_alphavt = 0
     for(j in 1:(2*m)+1){
-      xti = sigmas[j]
-      z_ti  =  c(exp(x_ti[1])*(x[i] + exp(x_ti[2])),exp(x_ti[1])*exp(x_ti[2]),0)
-      P_alphavt = P_alphavt + w[i]*((x_ti - a_t)%*%t(z_ti - y_t_expected))
+      xti = sigmas[[j]]
+      z_ti  = exp(xti[1])*(x[i]+ exp(xti[2]))
+      P_alphavt = P_alphavt + w[j]*((xti - a_t)*(z_ti - y_t_expected))
     }
-    P_vvt = matrix(0, nrow = 3, ncol = 3)
+    P_vvt = 0
     for(j in 1:(2*m)+1){
-      xti = sigmas[j]
-      z_ti  =  c(exp(x_ti[1])*(x[i] + exp(x_ti[2])),exp(x_ti[1])*exp(x_ti[2]),0)
-      P_vvt = P_vvt + w[i]*((z_ti - y_t_expected)%*%t(z_ti - y_t_expected))
+      xti = sigmas[[j]]
+      z_ti  =  exp(xti[1])*(x[i]+ exp(xti[2]))
+      P_vvt = P_vvt + w[j]*((z_ti - y_t_expected)*(z_ti - y_t_expected))
     }
     v_t = y[i] - y_t_expected
-    print(a_t)
-    print(P_alphavt)
-    print(P_vvt)
-    print(P_vvt^-1)
-    print(v_t)
-    a_tt=a_t+P_alphavt%*%(P_vvt^-1)%*%v_t
+    
+    a_tt=a_t+P_alphavt*(1/P_vvt)*v_t
     a_tts[[i]] = a_tt
-    P_tt=P_t-P_alphavt%*%t(P_vvt^-1)%*%t(P_alphavt)
-    
+    print(P_t)
+    print(P_alphavt)
+    P_tt=P_t-P_alphavt%*%((1/P_vvt)*t(P_alphavt))
+    print(P_tt)
     sigmas_n = list()
-    x_t0 = a_tt
-    sigmas_n[[1]] = x_t0
-    w = rep(0, 2*m + 1) 
+    x_t0_n = a_tt
+    sigmas_n[[1]] = x_t0_n
+    w_n = rep(0, 2*m + 1) 
+    P_aux_n = chol(P_tt)
     for(j in 1:m){
-      P_ti = P_tt[[j]]
-      x_ti = a_tt + sqrt(m + k)*P_ti
-      x_im = a_tt - sqrt(m + k)*P_ti
-      sigmas_n[[j + 1]] = x_ti
-      sigmas_n[[(m + j) + 1]] = x_im
-      w[1] = k/(k + m)
-      w[j + 1] = 1/(2*(m + k))
-      w[m + j + 1] =  1/(2*(m + k))
+      P_ti_n = P_aux_n[[j]]
+      x_ti_n = a_tt + sqrt(m + k)*P_ti_n
+      x_im_n = a_tt - sqrt(m + k)*P_ti_n
+      sigmas_n[[j + 1]] = x_ti_n
+      sigmas_n[[(m + j) + 1]] = x_im_n
+      w_n[1] = k/(k + m)
+      w_n[j + 1] = 1/(2*(m + k))
+      w_n[m + j + 1] =  1/(2*(m + k))
     }
-    
     a_t1=0
     for(j in 1:(2*m)+1){
-      xti = sigmas_n[j]
-      a_t1 = a_t1 + w[j]*(Tmat%*%x_ti)
+      xti_n = sigmas_n[[j]]
+      a_t1 = a_t1 + w_n[j]*(Tmat%*%xti_n)
     }
     P_t1 = 0
     for(j in 1:(2*m)+1){
-      xti = sigmas_n[j]
-      P_t1 =  P_t1 + w[j]*((Tmat%*%x_ti - a_t1)%*%t(Tmat%*%x_ti - a_t1)) + w[j]*Q
+      xti_n = sigmas_n[[j]]
+      P_t1 =  P_t1 + w_n[j]*((Tmat%*%xti_n - a_t1)%*%t(Tmat%*%xti_n - a_t1)) + w_n[j]*Q
     }
     a=cbind(a,a_t1)
     P[[i+1]]=P_t1
     v[[i]]=v_t
   }
-  
-    #smoothing
-    alpha=matrix(0,3,sizeY)
-    for(i in rev(2:sizeY)){
-      C_t1 = 0
-      sigmas = samples_x[i]
-      for(j in 1:(2*m)+1){
-        xti = sigmas[j]
-        C_t1 = C_t1 + w[i]*((x_ti - a_t)%*%t(Tmat%*%x_ti - a[i]))
-      }
-      alpha[,i - 1] = a_tts[[i - 1]] + C_t1%*%(P[[i]]^-1)%*%(alpha[,i] - a[i])
+  #smoothing
+  alpha=matrix(0,3,sizeY)
+  for(i in rev(2:sizeY)){
+    C_t1 = 0
+    sigmas = samples_x[i]
+    for(j in 1:(2*m)+1){
+      xti = sigmas[[j]]
+      C_t1 = C_t1 + w[j]*((xti - a_t)%*%t(Tmat%*%xti - a[i]))
     }
-    
-    logLikelihood=sum(dpois(y,exp(alpha[1,])*(x+exp(alpha[2,])), log=TRUE))
-    for(i in 1:sizeY){
-      logLikelihood=logLikelihood+if(i>0){dmvnorm(alpha[,i], mean=a[,i], sigma=P[[i]], log=TRUE)}else{dmvnorm(alpha[,i], mean=Tmat%*%alpha[,i-1], sigma=Q, log=TRUE)}
-    }
-    return(list(alpha=alpha,a=a,P=P,logL=logLikelihood))
+    alpha[,i - 1] = a_tts[[i - 1]] + C_t1%*%(P[[i]]^-1)%*%(alpha[,i] - a[i])
+  }
+  #TODO: compute Poisson Maximun likelihood
+  logLikelihood=sum(dpois(y,exp(alpha[1,])*(x+exp(alpha[2,])), log=TRUE))
+  for(i in 1:sizeY){}
+    #logLikelihood=logLikelihood+if(i>0){dmvnorm(alpha[,i], mean=a[,i], sigma=P[[i]], log=TRUE)}else{dmvnorm(alpha[,i], mean=Tmat%*%alpha[,i-1], sigma=Q, log=TRUE)}
+    #}
+  return(list(alpha=alpha,a=a,P=P,logL=logLikelihood))
 }
 
 
@@ -217,6 +162,7 @@ UKF_FS=function(y,x, par1,par2,par3, m=3){
 
 UKF_Complete=function(y,x, par1,par2,par3){
   parm=inicializadorLogLik(y,x, par1,par2,par3)
+  print('flag_2')
   UKF=UKF_FS(y,x, parm$par1,parm$par2,parm$par3)
   return(UKF)
 }
@@ -256,9 +202,10 @@ betaStateSpace=function(base, initialCases, distribucion_inc, distribucion_inf, 
   
   
   par1=c(0,0,0)
-  par2=10^2*c(1,1,1)
+  par2= c(0.1,0.1,0.1) #10^6*c(1,1,1)
   par3=c(1,1,1)
-  UKF=UKF_Complete(y,x, par1,par2,par3)
+  UKF=UKF_FS(y,x, par1,par2,par3)
+  #UKF=UKF_Complete(y,x, par1,par2,par3)
   P=UKF$P
   a=UKF$a
   alpha=UKF$alpha
@@ -285,7 +232,7 @@ betaStateSpace=function(base, initialCases, distribucion_inc, distribucion_inf, 
   expectedCasesUB=qpois((1-(1-CI)/2),exp(alpha[1,])*(x+exp(alpha[2,])))
   
   data=as.data.frame(cbind(betaLB,beta,betaUB,migrationLB,migration,migrationUB,expectedCasesLB,expectedCases,expectedCasesUB,y))
-
+  print(data$beta*sum(omega))
   data$R=data$beta*sum(omega)
   data$Rlb=data$lb*sum(omega)
   data$Rub=data$ub*sum(omega)
