@@ -10,12 +10,12 @@ source("discretize_dist.R")
 OUT_DIR = "results"
 
 config = list(
-  n_epidemics = 100,
+  n_epidemics = 10,
   si_dist="weibull",
   si_shape = 3,
   si_scale = 3,
-  initial_cases = 10,
-  immigration_rate = 2,
+  initial_cases = 100,
+  immigration_rate = 15,
   R = rep(1.2, 50)
 )
 config$time_span = length(config$R)
@@ -58,6 +58,10 @@ for (epidemic in 1:config$n_epidemics) {
     I = simulation$I,
     discrete_si = discrete_si
   )
+  ekf2_result = est$ekf2(
+    I = simulation$I,
+    discrete_si = discrete_si
+  )
   # Collect results
   simulation_results = list(
     I = simulation$I,
@@ -76,6 +80,13 @@ for (epidemic in 1:config$n_epidemics) {
       a = ekf_result$a,
       P = ekf_result$P,
       alpha = ekf_result$alpha
+    ),
+    ekf2 = list(
+      R_hat = ekf2_result$R_hat,
+      mape = mape(config$R, ekf2_result$R_hat),
+      a = ekf2_result$a,
+      P = ekf2_result$P,
+      alpha_hat = ekf2_result$alpha_hat
     )
   )
   results$simulations[[epidemic]] = simulation_results
@@ -86,10 +97,13 @@ for (epidemic in 1:config$n_epidemics) {
     simulation_results$epiestim_immigration$mape
   results$mean_mape_ekf =
     results$mean_mape_ekf + simulation_results$ekf$mape
+  results$mean_mape_ekf2 =
+    results$mean_mape_ekf2 + simulation_results$ekf2$mape
 }
 results$mean_mape_epiestim = results$mean_mape_epiestim / config$n_epidemics
 results$mean_mape_epiestim_immigration = results$mean_mape_epiestim_immigration / config$n_epidemics
 results$mean_mape_ekf = results$mean_mape_ekf / config$n_epidemics
+results$mean_mape_ekf2 = results$mean_mape_ekf2 / config$n_epidemics
 # Store results in disk
 summary = list(
   parameters = config,
@@ -98,4 +112,6 @@ summary = list(
 )
 dir.create(OUT_DIR, recursive=TRUE)
 timestamp = format(Sys.time(), "%Y%m%d%H%M")
-write(toJSON(summary, pretty=TRUE), paste0(OUT_DIR, "/", timestamp, ".json"))
+out_path = paste0(OUT_DIR, "/", timestamp, ".json")
+write(toJSON(summary, pretty=TRUE), out_path)
+print(paste0("Test results written at ./", out_path))

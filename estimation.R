@@ -28,6 +28,7 @@ alpha : list
   step t.
 '
 library(EpiEstim)
+library(matlib)
 source("raw_code/EKF.R")
 
 epiestim = function(I, discrete_si) {
@@ -68,9 +69,9 @@ ekf = function(I, discrete_si) {
   # x_nicolas[i] = x[i + 5]
   # x_nicolas=t(casesMatrix_T %*% discrete_si[5:1])
   x = overall_infectivity(I, c(0, discrete_si))
-  par1=c(0,0,0)
-  par2=10^6*c(1,1,1)
-  par3=c(1,1,1)
+  par1=c(0,0,0) # a_1
+  par2=10^6*c(1,1,1) # P_1
+  par3=c(1,1,1) # Q
   EKF=EKF_Complete(I[2:50], x[2:50], par1,par2,par3)
   # Pad resulting series to their expected lenghts
   alpha = matrix(NA, nrow=dim(EKF$alpha)[1], ncol=length(I))
@@ -92,31 +93,74 @@ ekf = function(I, discrete_si) {
 }
 
 ekf2 = function(I, discrete_si) {
-  a = list()
-  P = list()
+  # Extract ground-truth information
+  theta = I
+  n = length(theta)
   infectivity = overall_infectivity(I, c(0, discrete_si))
   infectivity[1] = 0 # EpiEstim makes this NA by default
-  # Distribution of initial hidden state - might change later
-  a[[1]] = c(log(1), log(10), log(1))
-  P[[1]] = matrix(
+  # Model matrices
+  T_prime = matrix(
     c(
-      c(1, -1, 0), # R and M are negatively correlated
-      c(-1, 1, 0),
+      c(1, 0, 1), # R and M are negatively correlated
+      c(0, 1, 0),
       c(0, 0, 1)
     ),
     nrow = 3
   )
-  for (t in 1:(lenght(I) - 1)) {
-    # Apply Kalman filter recursion
-    Z_t = exp(a[[t]][1]) * (infectivity[t] + exp(a[[t]][2])) # = Z_t(a_t)
-    Z_prime_t = c(
+  R = diag(3)
+  Q = diag(3)
+  # Initialize state variables
+  a = list()
+  P = list()
+  a[[1]] = matrix(c(0, log(10), 0), ncol=1)
+  P[[1]] = matrix(
+    c(
+      c(1, -.5, 0), # R_t and M_t are
+      c(-.5, 1, 0),
+      c(0, 0, 1)
+    ),
+    nrow = 3
+  )
+  # Store matrices that we'll need for smoothing
+  Z = list() # = Z_t(a_t)
+  Z_prime = list() # = Z'_t %*% a_t
+  F_inv = list()
+  K = list()
+  v = list()
+  for (t in 1:n) {
+    # Calculate variables for Kalman filter
+    Z[[t]] = exp(a[[t]][1]) * (infectivity[t] + exp(a[[t]][2])) # = Z_t(a_t)
+    Z_prime[[t]] = matrix(c(
         exp(a[[t]][1]) * (infectivity[t] + exp(a[[t]][2])),
         exp(a[[t]][1]) * exp(a[[t]][2]),
         0
-    )
-    d_t = Z_t - Z_prime_t %*% a[[t]]
-    c_t = c(0, 0, 0)
-    v_t = I[t] - Z_t
-    F_t = Z_prime_t %*% P[[t]] %*% Z_prime_t
+    ), nrow=1) # = Z'_t %*% a_t
+    d_t = Z[[t]] - Z_prime[[t]] %*% a[[t]]
+    c_t = matrix(c(0, 0, 0), ncol=1)
+    v[[t]] = theta[t] - Z[[t]]
+    F_t = Z_prime[[t]] %*% P[[t]] %*% t(Z_prime[[t]])
+    F_inv[[t]] = solve(F_t)
+    # Kalman Filter recursion
+    a_t_t = a[[t]] + (P[[t]] %*% t(Z_prime[[t]]) %*% F_inv[[t]] %*% v[[t]])
+    a[[t + 1]] = T_prime %*% a_t_t
+    P_t_t = P[[t]] - (P[[t]] %*% t(Z_prime[[t]]) %*% F_inv[[t]] %*% Z_prime[[t]] %*% P[[t]])
+    P[[t + 1]] = (T_prime %*% P_t_t %*% t(T_prime)) + (R %*% Q %*% t(R))
   }
+  # Kalman Smoothing
+  alpha_hat = list()
+  r_t_prev = matrix(c(0, 0, 0), ncol=1)
+  for (t in n:1) {
+    # Update r_t_prev
+    K_t = T_prime %*% P[[t]] %*% t(Z_prime[[t]]) %*% F_inv[[t]]
+    L_t = T_prime - (K_t %*% Z_prime[[t]])
+    r_t_prev = (t(Z_prime[[t]]) %*% F_inv[[t]] %*% v[[t]]) + (t(L_t) %*% r_t_prev)
+    # Calculate next (or previous) smoothed state
+    alpha_hat[[t]] = a[[t]] + (P[[t]] %*% r_t_prev)
+  }
+  return(list(
+    R_hat=unlist(lapply(a, function(x) exp(x[1]))),
+    a=a[1:n],
+    P=P[1:n],
+    alpha_hat=alpha_hat
+  ))
 }
