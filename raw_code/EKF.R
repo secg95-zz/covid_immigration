@@ -99,6 +99,7 @@ inicializadorLogLik=function(y,x, par1,par2,par3){
 EKF_Complete=function(y,x, par1,par2,par3){
   parm=inicializadorLogLik(y,x, par1,par2,par3)
   EKF=EKF_FS(y,x, parm$par1,parm$par2,parm$par3)
+  EKF$Q = parm$par3
   return(EKF)
 }
 betaStateSpace=function(base, initialCases, distribucion_inc, distribucion_inf, lags=7, lags2=5, par1_inc=3.169434, par2_inc=5.163921, par1_inf=24.206087, par2_inf=2.984198, CI=0.95){

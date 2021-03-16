@@ -90,6 +90,7 @@ ekf = function(I, discrete_si) {
     R_hat=R_hat,
     a=lapply(seq_len(ncol(EKF$a)), function(i) EKF$a[,i]),
     P=EKF$P,
+    Q=EKF$Q,
     alpha=lapply(seq_len(ncol(alpha)), function(i) alpha[,i])
   ))
 }
