@@ -76,9 +76,9 @@ ekf = function(I, discrete_si) {
   EKF=EKF_Complete(I[2:n], x[2:n], par1,par2,par3)
   # Correct dimensions: We skipped t=1 and ignore t=n+1
   a = matrix(NA, nrow=3, ncol=n)
-  a[2:n] = EKF$a[1:(n - 1)]
+  a[2:n] = EKF$a[, 1:(n - 1)]
   alpha = matrix(NA, nrow=3, ncol=n)
-  alpha[2:n] = EKF$alpha[1:(n - 1)]
+  alpha[2:n] = EKF$alpha[, 1:(n - 1)]
   R_hat = exp(alpha[1,])
   # Change infinity to NaN to prevent json storage bugs
   for (i in 1:length(R_hat)) {
