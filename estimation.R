@@ -77,6 +77,11 @@ ekf = function(I, discrete_si) {
   # Correct dimensions: We skipped t=1 and ignore t=n+1
   a = matrix(NA, nrow=3, ncol=n)
   a[, 2:n] = EKF$a[, 1:(n - 1)]
+  P = list()
+  P[[1]] = NULL
+  for (t in 2:n) {
+    P[[t]] = EKF$P[[t - 1]]
+  }
   alpha = matrix(NA, nrow=3, ncol=n)
   alpha[, 2:n] = EKF$alpha[, 1:(n - 1)]
   R_hat = exp(alpha[1,])
@@ -88,10 +93,10 @@ ekf = function(I, discrete_si) {
   }
   return(list(
     R_hat=R_hat,
-    a=lapply(seq_len(ncol(EKF$a)), function(i) EKF$a[,i]),
-    P=EKF$P,
-    Q=EKF$Q,
-    alpha=lapply(seq_len(ncol(alpha)), function(i) alpha[,i])
+    a=lapply(seq_len(ncol(a)), function(i) a[,i]),
+    P=P,
+    alpha=lapply(seq_len(ncol(alpha)), function(i) alpha[,i]),
+    Q=EKF$Q
   ))
 }
 
