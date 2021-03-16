@@ -114,8 +114,10 @@ ekf2 = function(I, discrete_si) {
   R = diag(3)
   Q = diag(3)
   # Initialize state variables
-  a = list(NULL)
-  P = list(NULL)
+  a = list()
+  P = list()
+  a[[1]] = NULL
+  P[[1]] = NULL
   a[[2]] = matrix(c(0, log(10), 0), ncol=1)
   P[[2]] = matrix(
     c(
