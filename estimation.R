@@ -59,24 +59,26 @@ epiestim_immigration = function(I, XI, discrete_si) {
   return(R_hat)
 }
 ekf = function(I, discrete_si) {
-  lags = 7
-  lags2 = 5
-  cases = I
-  casesMatrix_T=matrix(0,length(cases)-lags2+1,lags2)
-  for(i in 1:dim(casesMatrix_T)[1]){
-    casesMatrix_T[i,]=cases[i:(i+lags2-1)]
-  }
+  # lags = 7
+  # lags2 = 5
+  # cases = I
+  # casesMatrix_T=matrix(0,length(cases)-lags2+1,lags2)
+  # for(i in 1:dim(casesMatrix_T)[1]){
+  #   casesMatrix_T[i,]=cases[i:(i+lags2-1)]
+  # }
   # x_nicolas[i] = x[i + 5]
   # x_nicolas=t(casesMatrix_T %*% discrete_si[5:1])
+  n = length(I)
   x = overall_infectivity(I, c(0, discrete_si))
   par1=c(0,0,0) # a_1
   par2=10^6*c(1,1,1) # P_1
   par3=c(1,1,1) # Q
-  EKF=EKF_Complete(I[2:50], x[2:50], par1,par2,par3)
-  # Pad resulting series to their expected lenghts
-  alpha = matrix(NA, nrow=dim(EKF$alpha)[1], ncol=length(I))
-  alpha[,(length(I) - dim(EKF$alpha)[2] + 1):length(I)] = EKF$alpha
-  # R_hat = exp(EKF$a[1,])
+  EKF=EKF_Complete(I[2:n], x[2:n], par1,par2,par3)
+  # Correct dimensions: We skipped t=1 and ignore t=n+1
+  a = matrix(NA, nrow=3, ncol=n)
+  a[2:n] = EKF$a[1:(n - 1)]
+  alpha = matrix(NA, nrow=3, ncol=n)
+  alpha[2:n] = EKF$alpha[1:(n - 1)]
   R_hat = exp(alpha[1,])
   # Change infinity to NaN to prevent json storage bugs
   for (i in 1:length(R_hat)) {
@@ -94,10 +96,12 @@ ekf = function(I, discrete_si) {
 
 ekf2 = function(I, discrete_si) {
   # Extract ground-truth information
+  n = length(I)
   theta = I
-  n = length(theta)
   infectivity = overall_infectivity(I, c(0, discrete_si))
-  infectivity[1] = 0 # EpiEstim makes this NA by default
+  # Skip t=1 because infectivity isn't defined
+  theta = theta[2:n]
+  infectivity = infectivity[2:n]
   # Model matrices
   T_prime = matrix(
     c(
@@ -110,10 +114,10 @@ ekf2 = function(I, discrete_si) {
   R = diag(3)
   Q = diag(3)
   # Initialize state variables
-  a = list()
-  P = list()
-  a[[1]] = matrix(c(0, log(10), 0), ncol=1)
-  P[[1]] = matrix(
+  a = list(NULL)
+  P = list(NULL)
+  a[[2]] = matrix(c(0, log(10), 0), ncol=1)
+  P[[2]] = matrix(
     c(
       c(1, -.5, 0), # R_t and M_t are
       c(-.5, 1, 0),
@@ -127,7 +131,7 @@ ekf2 = function(I, discrete_si) {
   F_inv = list()
   K = list()
   v = list()
-  for (t in 1:n) {
+  for (t in 2:n) {
     # Calculate variables for Kalman filter
     Z[[t]] = exp(a[[t]][1]) * (infectivity[t] + exp(a[[t]][2])) # = Z_t(a_t)
     Z_prime[[t]] = matrix(c(
@@ -147,9 +151,9 @@ ekf2 = function(I, discrete_si) {
     P[[t + 1]] = (T_prime %*% P_t_t %*% t(T_prime)) + (R %*% Q %*% t(R))
   }
   # Kalman Smoothing
-  alpha_hat = list()
+  alpha_hat = list(NULL)
   r_t_prev = matrix(c(0, 0, 0), ncol=1)
-  for (t in n:1) {
+  for (t in n:2) {
     # Update r_t_prev
     K_t = T_prime %*% P[[t]] %*% t(Z_prime[[t]]) %*% F_inv[[t]]
     L_t = T_prime - (K_t %*% Z_prime[[t]])
