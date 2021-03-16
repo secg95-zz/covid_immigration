@@ -10,7 +10,7 @@ source("discretize_dist.R")
 OUT_DIR = "results"
 
 config = list(
-  n_epidemics = 10,
+  n_epidemics = 100,
   si_dist="weibull",
   si_shape = 3,
   si_scale = 3,
@@ -33,7 +33,8 @@ discrete_si = discretize_dist(
 results = list(
   mean_mape_epiestim = 0,
   mean_mape_epiestim_immigration = 0,
-  mean_mape_ekf = 0
+  mean_mape_ekf = 0,
+  mean_mape_ekf2 = 0
 )
 for (epidemic in 1:config$n_epidemics) {
   # Simulate epidemic

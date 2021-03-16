@@ -122,12 +122,12 @@ ekf2 = function(I, discrete_si) {
   P = list()
   a[[1]] = NULL
   P[[1]] = NULL
-  a[[2]] = matrix(c(1.1528593,  1.0105499, -0.1938042), ncol=1)
+  a[[2]] = matrix(c(0, 0, 0), ncol=1)
   P[[2]] = matrix(
     c(
-      c(0.0009071297, 0, 0), # R_t and M_t are
-      c(0, -0.0008649501, 0),
-      c(0, 0, 0.03314677)
+      c(1, 0, -.5), # R_t and M_t are
+      c(-.5, 1, 0),
+      c(0, 0, 1)
     ),
     nrow = 3,
     byrow = TRUE
@@ -151,7 +151,16 @@ ekf2 = function(I, discrete_si) {
     c_t = matrix(c(0, 0, 0), ncol=1)
     v[[t]] = theta[t] - Z[[t]]
     F_t = Z_prime[[t]] %*% P[[t]] %*% t(Z_prime[[t]])
-    F_inv[[t]] = solve(F_t)
+    # Matrix inversion might fail
+    F_inv[[t]] = tryCatch(
+      {solve(F_t)},
+      error = function(e) {
+        print(paste0("F_t = ", F_t, "; system is singular (ekf2)"))
+      },
+      finally = {
+        return(list(R_hat=NULL, a=NULL, P=NULL, alpha_hat=NULL))
+      }
+    )
     # Kalman Filter recursion
     a_t_t = a[[t]] + (P[[t]] %*% t(Z_prime[[t]]) %*% F_inv[[t]] %*% v[[t]])
     a[[t + 1]] = T_prime %*% a_t_t
@@ -170,7 +179,7 @@ ekf2 = function(I, discrete_si) {
     alpha_hat[[t]] = a[[t]] + (P[[t]] %*% r_t_prev)
   }
   return(list(
-    R_hat=unlist(lapply(a, function(x) exp(x[1]))),
+    R_hat=unlist(lapply(a, function(x) if (is.numeric(x)) exp(x[1]) else NULL)),
     a=a[1:n],
     P=P[1:n],
     alpha_hat=alpha_hat[1:n]
