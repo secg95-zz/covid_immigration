@@ -105,9 +105,6 @@ ekf2 = function(I, discrete_si) {
   n = length(I)
   theta = I
   infectivity = overall_infectivity(I, c(0, discrete_si))
-  # Skip t=1 because infectivity isn't defined
-  theta = theta[2:n]
-  infectivity = infectivity[2:n]
   # Model matrices
   T_prime = matrix(
     c(
@@ -115,7 +112,8 @@ ekf2 = function(I, discrete_si) {
       c(0, 1, 0),
       c(0, 0, 1)
     ),
-    nrow = 3
+    nrow = 3,
+    byrow=TRUE
   )
   R = diag(3)
   Q = diag(3)
@@ -124,14 +122,15 @@ ekf2 = function(I, discrete_si) {
   P = list()
   a[[1]] = NULL
   P[[1]] = NULL
-  a[[2]] = matrix(c(0, log(10), 0), ncol=1)
+  a[[2]] = matrix(c(1.1528593,  1.0105499, -0.1938042), ncol=1)
   P[[2]] = matrix(
     c(
-      c(1, -.5, 0), # R_t and M_t are
-      c(-.5, 1, 0),
-      c(0, 0, 1)
+      c(0.0009071297, 0, 0), # R_t and M_t are
+      c(0, -0.0008649501, 0),
+      c(0, 0, 0.03314677)
     ),
-    nrow = 3
+    nrow = 3,
+    byrow = TRUE
   )
   # Store matrices that we'll need for smoothing
   Z = list() # = Z_t(a_t)
@@ -139,6 +138,7 @@ ekf2 = function(I, discrete_si) {
   F_inv = list()
   K = list()
   v = list()
+  # Skip t=1 because infectivity isn't defined
   for (t in 2:n) {
     # Calculate variables for Kalman filter
     Z[[t]] = exp(a[[t]][1]) * (infectivity[t] + exp(a[[t]][2])) # = Z_t(a_t)
@@ -173,6 +173,6 @@ ekf2 = function(I, discrete_si) {
     R_hat=unlist(lapply(a, function(x) exp(x[1]))),
     a=a[1:n],
     P=P[1:n],
-    alpha_hat=alpha_hat
+    alpha_hat=alpha_hat[1:n]
   ))
 }
