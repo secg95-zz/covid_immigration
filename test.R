@@ -16,12 +16,17 @@ config = list(
   si_scale = 3,
   initial_cases = 100,
   immigration_rate = 15,
-  R = rep(1.2, 50)
+  R = rep(1.2, 50),
+  mape_starts_at = 10
 )
 config$time_span = length(config$R)
 # R estimations to be compared by Mean Absolute Percentage Error
-mape = function(truth, estimator) {
-  mean(abs((truth - estimator) / truth), na.rm=TRUE)
+mape = function(truth, estimator, mape_starts_at) {
+  n = length(truth)
+  mean(
+    abs((truth[mape_starts_at:n] - estimator[mape_starts_at:n]) / truth),
+    na.rm=FALSE
+  )
 }
 # Simulate and estimate R
 discrete_si = discretize_dist(
@@ -45,6 +50,7 @@ for (epidemic in 1:config$n_epidemics) {
     immigration_rate = config$immigration_rate,
     R = config$R
   )
+  infectivity = overall_infectivity(simulation$I, c(0, discrete_si))
   # Estimate R using each of the available algorithms
   R_epiestim = est$epiestim(
     I = simulation$I,
@@ -57,11 +63,13 @@ for (epidemic in 1:config$n_epidemics) {
   )
   ekf_result = est$ekf(
     I = simulation$I,
-    discrete_si = discrete_si
+    infectivity = infectivity,
+    skip_initial = config$mape_starts_at - 1
   )
   ekf2_result = est$ekf2(
     I = simulation$I,
-    discrete_si = discrete_si
+    infectivity = infectivity,
+    skip_initial = config$mape_starts_at - 1
   )
   # Collect results
   simulation_results = list(
@@ -69,22 +77,22 @@ for (epidemic in 1:config$n_epidemics) {
     XI = simulation$XI,
     epiestim = list(
       R_hat = R_epiestim,
-      mape = mape(config$R, R_epiestim)
+      mape = mape(config$R, R_epiestim, config$mape_starts_at)
     ),
     epiestim_immigration = list(
       R_hat = R_epiestim_immigration,
-      mape = mape(config$R, R_epiestim_immigration)
+      mape = mape(config$R, R_epiestim_immigration, config$mape_starts_at)
     ),
     ekf = list(
       R_hat = ekf_result$R_hat,
-      mape = mape(config$R, ekf_result$R_hat),
+      mape = mape(config$R, ekf_result$R_hat, config$mape_starts_at),
       a = ekf_result$a,
       P = ekf_result$P,
       alpha = ekf_result$alpha
     ),
     ekf2 = list(
       R_hat = ekf2_result$R_hat,
-      mape = mape(config$R, ekf2_result$R_hat),
+      mape = mape(config$R, ekf2_result$R_hat, config$mape_starts_at),
       a = ekf2_result$a,
       P = ekf2_result$P,
       alpha_hat = ekf2_result$alpha_hat
