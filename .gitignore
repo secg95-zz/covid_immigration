@@ -1,4 +1,5 @@
 .DS_Store
+.RData
 .Rhistory
 # Keep simulation results out of repo
 results/
