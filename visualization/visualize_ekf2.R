@@ -7,9 +7,10 @@ library(EpiEstim)
 library(ggplot2)
 library(cowplot)
 
-test = fromJSON("./results/202103081305.json", nullValue = NaN, null = NaN)
+source("sample_test_simulations.R")
+
 # Read the results of a random simulation
-simulation_results = sample(x=test$results$simulations, size=1)[[1]]
+simulation_results = sample_test_simulations(use_latest_test = TRUE)
 # Construct dataframe with series to be visualized
 R = c(test$parameters$R)
 plot_df = data.frame(R)

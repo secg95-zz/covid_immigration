@@ -2,14 +2,14 @@
 Visualize the internal parameters of a fitted Kalman filter from performed tests
 (from `test.R`).
 "
-library(RJSONIO)
 library(EpiEstim)
 library(ggplot2)
 library(cowplot)
 
-test = fromJSON("results/202102220822.json", nullValue = NaN, null = NaN)
+source("sample_test_simulations.R")
+
 # Read the results of a random simulation
-simulation_results = sample(test$results$simulations, 1)[[1]]
+simulation_results = sample_test_simulations(use_latest_test = TRUE)
 # Construct dataframe with series to be visualized
 R = test$parameters$R
 plot_df = data.frame(R)
