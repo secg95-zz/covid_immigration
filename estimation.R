@@ -36,6 +36,29 @@ library(EpiEstim)
 library(matlib)
 source("raw_code/EKF.R")
 
+create_sample=function(sqrt_P, a_t, m, k){
+  "The is aproblem here, the ones abowe weights more, exponential function! ponerle logs????"
+    sigmas = matrix(0, m, 2*m + 1)
+    sigmas[,1] = a_t
+    w = rep(0, 2*m + 1) 
+    for(j in 1:m){
+      P_ti = sqrt_P[,j]
+      x_ti = a_t + sqrt(m + k)*P_ti
+      x_im = a_t - sqrt(m + k)*P_ti
+      sigmas[,j + 1] = x_ti
+      sigmas[,(m + j) + 1] = x_im
+      w[1] = k/(k + m)
+      w[j + 1] = 1/(2*(m + k))
+      w[m + j + 1] =  1/(2*(m + k))
+    }
+   avg_at = 0 
+   for(j in 1:(2*m+1)){
+      xtj = sigmas[,j]
+      avg_at = avg_at + w[j]*c(exp(xtj[1]),exp(xtj[2])*exp(xtj[1]), 0)
+    }
+  return(list(sigmas=sigmas, w=w, avg_at=avg_at))
+}
+
 epiestim = function(I, discrete_si) {
   R_hat = estimate_R(
     incid = I,
@@ -104,6 +127,91 @@ ekf = function(I, infectivity, skip_initial = 1) {
     Q=EKF$Q
   ))
 }
+
+ukf = function(I, infectivity, skip_initial = 1){
+  #y,x, par1,par2,par3, m=3
+  "Unscentend Kalman filter
+  y : list
+    Series of observed cases.
+  x : double
+    True cases, sums of lagged casses and migration.
+  par1 : double
+    Initial expected value of alpha given y_t (suggested value:0) .
+  par2 : double
+    Initial variance of alpha given y_t.
+  par3 : double
+    eta's initial variance, as these errors are uncorralted the suggested value for this paramter is: 1"
+  x = infectivity
+  y = I
+  a=as.matrix(par1)
+  P=list()
+  v=list()
+  a_tts = list()
+  samples_x = list()
+  P[[1]]=diag(par2)
+  Tmat=diag(3)
+  Tmat[1,3]=1
+  Q=diag(par3)
+  #Heuristic 
+  k = 5 - m
+  sizeY=length(y)
+  avg_a_t = matrix(0, m, sizeY)
+  for(i in 1:sizeY){
+    a_t=a[,i]
+    P_t=P[[i]]
+    P_aux = chol(P_t)
+    samples_a_t = create_sample(P_aux, a_t, m, k)
+    sigmas = samples_a_t$sigmas
+    samples_x[[i]] = sigmas
+    w = samples_a_t$w
+    avg_a_t[,i] = samples_a_t$avg_at
+    y_t_expected = 0
+    z_t = rep(0, 2*m +1) 
+    for (j in 1:(2*m+1)){
+      xtj = sigmas[,j]
+      z_tj = exp(xtj[1])*(x[i]+ exp(xtj[2]))
+      z_t[j] = z_tj
+      y_t_expected = y_t_expected + w[j]*z_tj
+    }
+
+    P_vvt = 0
+    P_alphavt = 0
+    for(j in 1:(2*m+1)){
+      xtj = sigmas[,j]
+      z_tj  = z_t[j]
+      P_alphavt = P_alphavt + w[j]*((xtj - a_t)*(z_tj - y_t_expected))
+      P_vvt = P_vvt + w[j]*((z_tj - y_t_expected)*(z_tj - y_t_expected))
+    }
+    v_t = y[i] - y_t_expected
+    a_tt = a_t + P_alphavt*(1/P_vvt)*v_t
+    a_tts[[i]] = a_tt
+    P_tt=P_t-P_alphavt%*%((1/P_vvt)*t(P_alphavt))
+ 
+    P_aux_n = chol(P_tt)
+    samples_a_t1 = create_sample(P_aux_n, a_tt, m, k)
+    sigmas_n = samples_a_t1$sigmas
+    w_n = samples_a_t1$w
+
+    a_t1=0
+    for(j in 1:(2*m+1)){
+      xtj_n = sigmas_n[,j]
+      a_t1 = a_t1 + w_n[j]*(Tmat%*%xtj_n)
+    }
+    P_t1 = 0
+    for(j in 1:(2*m+1)){
+      xtj_n = sigmas_n[,j]
+      P_t1 =  P_t1 + w_n[j]*((Tmat%*%xtj_n - a_t1)%*%t(Tmat%*%xtj_n - a_t1)) + w_n[j]*Q
+    }
+    a=cbind(a,a_t1)
+    P[[i+1]]=P_t1
+    v[[i]]=v_t
+  }
+  return(list(
+    R_hat=avg_a_t[1,],
+    a=a,
+    P=P
+  ))
+} 
 
 ekf2 = function(I, infectivity, skip_initial = 1) {
   # Extract ground-truth information
