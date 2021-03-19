@@ -246,7 +246,6 @@ ukf = function(I, infectivity, skip_initial = 4){
     P[[i+1]]=P_t1
     v[[i]]=v_t
   }
-  print(avg_a_t[1,])
   return(list(
     R_hat=avg_a_t[1,],
     a=a,
@@ -338,8 +337,6 @@ mukf = function(I, infectivity, skip_initial = 4){
     P[[i+1]]=P_t1
     v[[i]]=v_t
   }
-  print("r_mukf")
-  print(avg_a_t[1,])
   return(list(
     R_hat=avg_a_t[1,],
     a=a,
