@@ -128,7 +128,7 @@ ekf = function(I, infectivity, skip_initial = 1) {
   ))
 }
 
-ukf = function(I, infectivity, skip_initial = 1){
+ukf = function(I, infectivity, skip_initial = 4){
   #y,x, par1,par2,par3, m=3
   "Unscentend Kalman filter
   y : list
@@ -141,8 +141,13 @@ ukf = function(I, infectivity, skip_initial = 1){
     Initial variance of alpha given y_t.
   par3 : double
     eta's initial variance, as these errors are uncorralted the suggested value for this paramter is: 1"
-  x = infectivity
-  y = I
+  par1 = c(0, 0, 0)
+  par2 = c(0.1, 0.1, 0.1)
+  par3 = c(1, 1, 1)
+  m=3
+  aux = length(infectivity)
+  x = infectivity[skip_initial:aux]
+  y = I[skip_initial:aux]
   a=as.matrix(par1)
   P=list()
   v=list()
@@ -206,10 +211,12 @@ ukf = function(I, infectivity, skip_initial = 1){
     P[[i+1]]=P_t1
     v[[i]]=v_t
   }
+  print(avg_a_t[1,])
   return(list(
     R_hat=avg_a_t[1,],
     a=a,
-    P=P
+    P=P,
+    alpha_hat=a
   ))
 } 
 

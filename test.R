@@ -10,7 +10,7 @@ source("discretize_dist.R")
 OUT_DIR = "results"
 
 config = list(
-  n_epidemics = 100,
+  n_epidemics = 2,
   si_dist="weibull",
   si_shape = 3,
   si_scale = 3,
@@ -107,7 +107,7 @@ for (epidemic in 1:config$n_epidemics) {
       R_hat = ukf_result$R_hat,
       mape = mape(config$R, ukf_result$R_hat, config$mape_starts_at),
       a = ukf_result$a,
-      P = ukf_result$P,)
+      P = ukf_result$P)
   )
   results$simulations[[epidemic]] = simulation_results
   results$mean_mape_epiestim =
