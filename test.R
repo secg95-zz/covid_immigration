@@ -10,7 +10,7 @@ source("discretize_dist.R")
 OUT_DIR = "results"
 
 config = list(
-  n_epidemics = 100,
+  n_epidemics = 2,
   si_dist="weibull",
   si_shape = 3,
   si_scale = 3,
@@ -39,7 +39,8 @@ results = list(
   mean_mape_epiestim = 0,
   mean_mape_epiestim_immigration = 0,
   mean_mape_ekf = 0,
-  mean_mape_ekf2 = 0
+  mean_mape_ekf2 = 0,
+  mean_mape_ukf = 0
 )
 for (epidemic in 1:config$n_epidemics) {
   # Simulate epidemic
@@ -71,6 +72,11 @@ for (epidemic in 1:config$n_epidemics) {
     infectivity = infectivity,
     skip_initial = config$mape_starts_at - 1
   )
+  ukf_result = est$ukf(
+     I = simulation$I,
+    infectivity = infectivity,
+    skip_initial = config$mape_starts_at - 1
+  )
   # Collect results
   simulation_results = list(
     I = simulation$I,
@@ -96,7 +102,12 @@ for (epidemic in 1:config$n_epidemics) {
       a = ekf2_result$a,
       P = ekf2_result$P,
       alpha_hat = ekf2_result$alpha_hat
-    )
+    ),
+    ukf = list(
+      R_hat = ukf_result$R_hat,
+      mape = mape(config$R, ukf_result$R_hat, config$mape_starts_at),
+      a = ukf_result$a,
+      P = ukf_result$P)
   )
   results$simulations[[epidemic]] = simulation_results
   results$mean_mape_epiestim =
@@ -108,11 +119,14 @@ for (epidemic in 1:config$n_epidemics) {
     results$mean_mape_ekf + simulation_results$ekf$mape
   results$mean_mape_ekf2 =
     results$mean_mape_ekf2 + simulation_results$ekf2$mape
+  results$mean_mape_ukf =
+    results$mean_mape_ukf + simulation_results$ukf$mape
 }
 results$mean_mape_epiestim = results$mean_mape_epiestim / config$n_epidemics
 results$mean_mape_epiestim_immigration = results$mean_mape_epiestim_immigration / config$n_epidemics
 results$mean_mape_ekf = results$mean_mape_ekf / config$n_epidemics
 results$mean_mape_ekf2 = results$mean_mape_ekf2 / config$n_epidemics
+results$mean_mape_ukf = results$mean_mape_ukf / config$n_epidemics
 # Store results in disk
 summary = list(
   parameters = config,

@@ -54,7 +54,7 @@ UKF_FS=function(y,x, par1,par2,par3, m=3){
   samples_x = list()
   print(sizeY)
   avg_a_t = matrix(0, m, sizeY)
-
+  print(x)
   for(i in 1:sizeY){
     a_t=a[,i]
     P_t=P[[i]]
@@ -82,9 +82,6 @@ UKF_FS=function(y,x, par1,par2,par3, m=3){
       P_vvt = P_vvt + w[j]*((z_tj - y_t_expected)*(z_tj - y_t_expected))
     }
     v_t = y[i] - y_t_expected
-    print("incidences")
-    print(y_t_expected)
-    print(y[i])
     a_tt = a_t + P_alphavt*(1/P_vvt)*v_t
     a_tts[[i]] = a_tt
     P_tt=P_t-P_alphavt%*%((1/P_vvt)*t(P_alphavt))
@@ -93,8 +90,6 @@ UKF_FS=function(y,x, par1,par2,par3, m=3){
     samples_a_t1 = create_sample(P_aux_n, a_tt, m, k)
     sigmas_n = samples_a_t1$sigmas
     w_n = samples_a_t1$w
-
-    
 
     a_t1=0
     for(j in 1:(2*m+1)){
