@@ -10,12 +10,11 @@ source("discretize_dist.R")
 OUT_DIR = "results"
 
 config = list(
-  n_epidemics = 2,
+  n_epidemics = 100,
   si_dist="weibull",
   si_shape = 3,
   si_scale = 3,
-  initial_cases = 100,
-  immigration_rate = 15,
+  immigration_rate = sapply(1:50, FUN=function(t) 100 - t),
   R = rep(1.2, 50),
   mape_starts_at = 10
 )
@@ -39,7 +38,6 @@ results = list(
   mean_mape_epiestim = 0,
   mean_mape_epiestim_immigration = 0,
   mean_mape_ekf = 0,
-  mean_mape_ekf2 = 0,
   mean_mape_ukf = 0,
   mean_mape_mukf = 0
 )
@@ -47,7 +45,6 @@ for (epidemic in 1:config$n_epidemics) {
   # Simulate epidemic
   simulation = sim$simulate_with_immigrants(
     discrete_si = discrete_si,
-    initial_cases = config$initial_cases,
     time_span = config$time_span,
     immigration_rate = config$immigration_rate,
     R = config$R
@@ -64,11 +61,6 @@ for (epidemic in 1:config$n_epidemics) {
     discrete_si = discrete_si
   )
   ekf_result = est$ekf(
-    I = simulation$I,
-    infectivity = infectivity,
-    skip_initial = config$mape_starts_at - 1
-  )
-  ekf2_result = est$ekf2(
     I = simulation$I,
     infectivity = infectivity,
     skip_initial = config$mape_starts_at - 1
@@ -102,13 +94,6 @@ for (epidemic in 1:config$n_epidemics) {
       P = ekf_result$P,
       alpha = ekf_result$alpha
     ),
-    ekf2 = list(
-      R_hat = ekf2_result$R_hat,
-      mape = mape(config$R, ekf2_result$R_hat, config$mape_starts_at),
-      a = ekf2_result$a,
-      P = ekf2_result$P,
-      alpha_hat = ekf2_result$alpha_hat
-    ),
     ukf = list(
       R_hat = ukf_result$R_hat,
       mape = mape(config$R, ukf_result$R_hat, config$mape_starts_at),
@@ -129,8 +114,6 @@ for (epidemic in 1:config$n_epidemics) {
     simulation_results$epiestim_immigration$mape
   results$mean_mape_ekf =
     results$mean_mape_ekf + simulation_results$ekf$mape
-  results$mean_mape_ekf2 =
-    results$mean_mape_ekf2 + simulation_results$ekf2$mape
   results$mean_mape_ukf =
     results$mean_mape_ukf + simulation_results$ukf$mape
   results$mean_mape_mukf =
@@ -139,7 +122,6 @@ for (epidemic in 1:config$n_epidemics) {
 results$mean_mape_epiestim = results$mean_mape_epiestim / config$n_epidemics
 results$mean_mape_epiestim_immigration = results$mean_mape_epiestim_immigration / config$n_epidemics
 results$mean_mape_ekf = results$mean_mape_ekf / config$n_epidemics
-results$mean_mape_ekf2 = results$mean_mape_ekf2 / config$n_epidemics
 results$mean_mape_ukf = results$mean_mape_ukf / config$n_epidemics
 results$mean_mape_mukf = results$mean_mape_mukf / config$n_epidemics
 # Store results in disk

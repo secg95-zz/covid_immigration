@@ -246,8 +246,11 @@ ukf = function(I, infectivity, skip_initial = 4){
     P[[i+1]]=P_t1
     v[[i]]=v_t
   }
+  # Pad R_hat to expected length
+  n = length(I) - skip_initial
+  R_hat = c(rep(NA, skip_initial), avg_a_t[1, 1:n])
   return(list(
-    R_hat=avg_a_t[1,],
+    R_hat=R_hat,
     a=a,
     P=P,
     alpha_hat=a
@@ -337,8 +340,11 @@ mukf = function(I, infectivity, skip_initial = 4){
     P[[i+1]]=P_t1
     v[[i]]=v_t
   }
+  # Pad R_hat to expected length
+  n = length(I) - skip_initial
+  R_hat = c(rep(NA, skip_initial), avg_a_t[1, 1:n])
   return(list(
-    R_hat=avg_a_t[1,],
+    R_hat=R_hat,
     a=a,
     P=P,
     alpha_hat=a

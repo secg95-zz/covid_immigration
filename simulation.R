@@ -21,7 +21,7 @@ simulate_gamma = function(initial_cases, time_span, si_scale, si_shape, R) {
 }
 
 simulate_with_immigrants = function(
-  discrete_si, initial_cases, time_span, immigration_rate, R
+  discrete_si, time_span, immigration_rate, R
 ) {
   "
   Simulates an incidence series with immigrants in which
@@ -36,12 +36,10 @@ simulate_with_immigrants = function(
   discrete_si : double
     Discretized distribution of the serial interval. discretete_si[i + 1] :=
     probability of serial interval = i.
-  initial_cases : integer
-    Number of infectious immigrants arriving at the begining of the epidemic.
   time_span : integer
-    Number of epidemic periods to be simulated.
+    Number of infection timesteps to be simulated.
   immigration_rate : double
-    Mean number of infectious immigrants arriving at any period.
+    Series of E[X[t]].
   R : double
     Series of reproduction numbers. Must be of length >= time_span.
     
@@ -58,7 +56,7 @@ simulate_with_immigrants = function(
   "
   imm_infection_window = 5
   I = 0
-  X = initial_cases # Immigrant arrival series
+  X = rpois(1, immigration_rate[1]) # Immigrant arrival series
   XI = rep(0, imm_infection_window) # Immigrant incidence series
   for (i in 1:X) {
     onset = length(XI) - sample(1:imm_infection_window, 1) + 1
@@ -71,7 +69,7 @@ simulate_with_immigrants = function(
       )
     next_incidence_mean = infected_by_locals + infected_by_imms
     I = c(I, rpois(1, next_incidence_mean))
-    X = c(X, rpois(1, immigration_rate))
+    X = c(X, rpois(1, immigration_rate[t + 1]))
     XI = c(XI, 0)
     for (i in 1:tail(X, 1)) {
       onset = length(XI) - sample(1:imm_infection_window, 1) + 1
