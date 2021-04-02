@@ -33,9 +33,18 @@ alpha : list
   step t.
 '
 library(EpiEstim)
+library(bssm)
+library(nloptr)
 library(matlib)
 library(geometry)
+library(Rcpp)
+library(bssm)
+
+sourceCpp("bssm_model.cpp")
 source("raw_code/EKF.R")
+
+# C++ functions that define model for the bssm package
+BSSM_FN_POINTERS = create_xptrs()
 
 create_sample=function(sqrt_P, a_t, m, k){
   "Creates the sampling for the UKF"
@@ -436,4 +445,57 @@ ekf2 = function(I, infectivity, skip_initial = 1) {
     P=P[1:n],
     alpha_hat=alpha_hat[1:n]
   ))
+}
+
+get_bssm_model(I, infectivity) {
+  
+}
+
+ekf_bssm = function(I, infectivity, skip_initial = 4){
+  n = length(I)
+  theta = I
+  # Search for initialization that maximizes fitted UKF likelihood
+  lb = c(
+    log(0.01), log(0.01), log(0.01), # for state vector
+    0.001, 0.001, 0.001, # state vector variance
+    -10, -10, -10 # state vector covariances
+  )
+  ub = c(
+    log(5), log(max(infectivity, na.rm = TRUE)), log(5), # for state vector
+    10, 10, 10, # state vector variance
+    10, 10, 10 # state vector covariances
+  )
+  bssm_model = ssm_nlg(
+    y = theta[(skip_initial + 1):n],
+    theta = infectivity[(skip_initial + 1):n],
+    Z = BSSM_FN_POINTERS$Z_fn, Z_gn = BSSM_FN_POINTERS$Z_gn,
+    T = BSSM_FN_POINTERS$T_fn, T_gn = BSSM_FN_POINTERS$T_gn,
+    H = BSSM_FN_POINTERS$H_fn,
+    R = BSSM_FN_POINTERS$R_fn,
+    a1 = BSSM_FN_POINTERS$a1_fn,
+    P1 = BSSM_FN_POINTERS$P1_fn,
+    log_prior_pdf = BSSM_FN_POINTERS$log_prior_pdf,
+    n_states=3
+  )
+  ekf_negative_loglike = function(init_params) {
+    # Fit UKF and record resulting model likelihood
+    bssm_model$known_params = init_params
+    tryCatch(
+      {
+        return(-ekf(bssm_model)$logLik) # Return negative to maximize likelihood
+      },
+      error = function(cond) {
+        return(Inf)
+      }
+    )
+  }
+  best_init_params = nloptr(
+    x0 = (lb + ub) / 2,
+    eval_f = ekf_negative_loglike,
+    lb = lb,
+    ub = ub,
+    opts = list(maxeval = 10000, algorithm = "NLOPT_GN_CRS2_LM")
+  )$solution
+  bssm_model$known_params = best_init_params
+  ekf_result = ekf(bssm_model)
 }
