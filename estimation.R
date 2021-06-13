@@ -94,7 +94,7 @@ create_msample=function(sqrt_P, a_t, m, k){
 }
 
 
-epiestim = function(I, discrete_si) {
+epiestim = function(I, discrete_si, ...) {
   R_hat = estimate_R(
     incid = I,
     method = "non_parametric_si", # user-specified discrete distribution
@@ -104,7 +104,7 @@ epiestim = function(I, discrete_si) {
   R_hat = c(rep(NA, length(I) - length(R_hat)), R_hat)
   return(R_hat)
 }
-epiestim_immigration = function(I, XI, discrete_si) {
+epiestim_immigration = function(I, XI, discrete_si, ...) {
   R_hat = estimate_R(
     incid = data.frame(list(
       local = c(rep(0, length(XI) - length(I)), I),
@@ -121,7 +121,7 @@ epiestim_immigration = function(I, XI, discrete_si) {
   }
   return(R_hat)
 }
-ekf = function(I, infectivity, skip_initial = 1) {
+ekf = function(I, infectivity, skip_initial = 1, ...) {
   n = length(I)
   EKF = EKF_Complete(
     I[(skip_initial + 1):n],
@@ -163,7 +163,7 @@ ekf = function(I, infectivity, skip_initial = 1) {
   ))
 }
 
-ukf = function(I, infectivity, skip_initial = 4){
+ukf = function(I, infectivity, skip_initial = 4, ...){
   #y,x, par1,par2,par3, m=3
   "Unscentend Kalman filter
   y : list
@@ -257,7 +257,7 @@ ukf = function(I, infectivity, skip_initial = 4){
   ))
 } 
 
-mukf = function(I, infectivity, skip_initial = 4){
+mukf = function(I, infectivity, skip_initial = 4, ...){
   #y,x, par1,par2,par3, m=3
   "Unscentend Kalman filter
   y : list
@@ -351,7 +351,7 @@ mukf = function(I, infectivity, skip_initial = 4){
   ))
 } 
 
-ekf2 = function(I, infectivity, skip_initial = 1) {
+ekf2 = function(I, infectivity, skip_initial = 1, ...) {
   # Extract ground-truth information
   n = length(I)
   theta = I
