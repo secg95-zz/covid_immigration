@@ -102,7 +102,9 @@ epiestim = function(I, discrete_si, ...) {
   )$R$`Mean(R)`
   # Pad estimation to length of incidence series
   R_hat = c(rep(NA, length(I) - length(R_hat)), R_hat)
-  return(R_hat)
+  return(list(
+    R_hat = R_hat
+  ))
 }
 epiestim_immigration = function(I, XI, discrete_si, ...) {
   R_hat = estimate_R(
@@ -119,7 +121,9 @@ epiestim_immigration = function(I, XI, discrete_si, ...) {
   } else if (length(I) < length(R_hat)) {
     R_hat = R_hat[(length(R_hat) - length(I)):length(R_hat)]
   }
-  return(R_hat)
+  return(list(
+    R_hat = R_hat
+  ))
 }
 ekf = function(I, infectivity, skip_initial = 1, ...) {
   n = length(I)
