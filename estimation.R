@@ -163,7 +163,7 @@ ekf = function(I, infectivity, skip_initial = 1) {
   ))
 }
 
-ukf = function(I, infectivity, skip_initial = 4){
+ukf_computation = function(I, infectivity, par1, par2, par3, skip_initial = 4){
   #y,x, par1,par2,par3, m=3
   "Unscentend Kalman filter
   y : list
@@ -176,10 +176,8 @@ ukf = function(I, infectivity, skip_initial = 4){
     Initial variance of alpha given y_t.
   par3 : double
     eta's initial variance, as these errors are uncorralted the suggested value for this paramter is: 1"
-  par1 = c(0, 0, 0)
-  par2 = c(0.1, 0.1, 0.1)
-  par3 = c(1, 1, 1)
   m=3
+  print(par1, par2, par3)
   aux = length(infectivity)
   x = infectivity[skip_initial:aux]
   y = I[skip_initial:aux]
@@ -249,13 +247,55 @@ ukf = function(I, infectivity, skip_initial = 4){
   # Pad R_hat to expected length
   n = length(I) - skip_initial
   R_hat = c(rep(NA, skip_initial), avg_a_t[1, 1:n])
+
+  logLikelihood=sum(dpois(y,exp(avg_a_t[1,])*(x + exp(avg_a_t[2,])), log=TRUE))
+  for(i in 1:length(y)){
+    
+    if(i>0)
+      {error = dmvnorm(avg_a_t[,i], mean=avg_a_t[,i], sigma=P[[i]], log=TRUE)}
+    else
+      {error = dmvnorm(avg_a_t[,i], mean=Tmat%*%avg_a_t[,i-1], sigma=Q, log=TRUE)}
+    logLikelihood=logLikelihood + error
+  }
+  print(logLikelihood)
   return(list(
     R_hat=R_hat,
     a=a,
     P=P,
-    alpha_hat=a
+    alpha_hat=a,
+    logLikelihood=logLikelihood
   ))
 } 
+
+inicializadorLogLik=function(I, infectivity, par1, par2, par3){
+  pars=c(par1, par2, par3)
+  obj = function(par) {
+    par1=par[1:3]
+    par2=exp(par[4:6])
+    par3=par[7:9]
+    ukf=ukf_computation(I, infectivity, par1, par2, par3)
+    objectiveFunction=-ukf$logLikelihood       
+    return(objectiveFunction)
+  }
+  lb=rep(-1,2)
+  ub=rep(7,9)
+  initial_condintions=pars
+  opt = nlminb(initial_condintions, obj, lower = lb, upper = ub)
+  pars=opt$par
+  par1=pars[1:3]
+  par2=exp(pars[4:6])
+  par2=pars[7:9]
+  return(list(par1=par1, par2=par2, par3=par3))
+}
+
+ukf=function(I, infectivity, par1, par2, par3, skip_initial = 4){
+  par1 = c(  0,   0,   0)
+  par2 = c(0.1, 0.1, 0.1) # #
+  par3 = c(  1,   1,   1)
+  parm=inicializadorLogLik(I, infectivity, par1, par2, par3)
+  ukf_result=ukf_computation(I, infectivity, parm$par1, parm$par2, parm$par3)
+  return(ukf_result)
+}
 
 mukf = function(I, infectivity, skip_initial = 4){
   #y,x, par1,par2,par3, m=3
