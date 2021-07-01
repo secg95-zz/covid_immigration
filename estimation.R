@@ -54,7 +54,7 @@ create_sample=function(sqrt_P, a_t, m, k){
    avg_at = 0 
    for(j in 1:(2*m+1)){
       xtj = sigmas[,j]
-      avg_at = avg_at + w[j]*c(exp(xtj[1]),exp(xtj[2])*exp(xtj[1]), 0)
+      avg_at = avg_at + w[j]*c(exp(xtj[1]),exp(xtj[2]), 0)
     }
   return(list(sigmas=sigmas, w=w, avg_at=avg_at))
 }
@@ -87,7 +87,7 @@ create_msample=function(sqrt_P, a_t, m, k){
    avg_at = 0 
    for(j in 1:(num_sam*m + 1)){
       xtj = sigmas[,j]
-      avg_at = avg_at + w[j]*c(exp(xtj[1]),exp(xtj[2])*exp(xtj[1]), 0)
+      avg_at = avg_at + w[j]*c(exp(xtj[1]),exp(xtj[2]), 0)
     }
   return(list(sigmas=sigmas, w=w, avg_at=avg_at))
 }
@@ -166,7 +166,19 @@ ekf = function(I, infectivity, skip_initial = 1, ...) {
   ))
 }
 
-ukf = function(I, infectivity, skip_initial = 4, ...){
+compute_likelihood = function(y, x, avg_a_t, Tmat, P, Q){
+  logLikelihood=sum(dpois(y,avg_a_t[1,]*(x + avg_a_t[2,]), log=TRUE))
+  for(i in 1:length(y)){
+    if(i>0)
+      {error = dmvnorm(avg_a_t[,i], mean=avg_a_t[,i], sigma=P[[i]], log=TRUE)}
+    else
+      {error = dmvnorm(avg_a_t[,i], mean=Tmat%*%avg_a_t[,i-1], sigma=Q, log=TRUE)}
+    logLikelihood=logLikelihood + error
+  }
+  return(logLikelihood)
+}
+
+ukf_computation = function(I, infectivity, par1, par2, par3, skip_initial = 4){
   #y,x, par1,par2,par3, m=3
   "Unscentend Kalman filter
   y : list
@@ -179,9 +191,6 @@ ukf = function(I, infectivity, skip_initial = 4, ...){
     Initial variance of alpha given y_t.
   par3 : double
     eta's initial variance, as these errors are uncorralted the suggested value for this paramter is: 1"
-  par1 = c(0, 0, 0)
-  par2 = c(0.1, 0.1, 0.1)
-  par3 = c(1, 1, 1)
   m=3
   aux = length(infectivity)
   x = infectivity[skip_initial:aux]
@@ -229,7 +238,7 @@ ukf = function(I, infectivity, skip_initial = 4, ...){
     a_tt = a_t + P_alphavt*(1/P_vvt)*v_t
     a_tts[[i]] = a_tt
     P_tt=P_t-P_alphavt%*%((1/P_vvt)*t(P_alphavt))
- 
+
     P_aux_n = chol(P_tt)
     samples_a_t1 = create_sample(P_aux_n, a_tt, m, k)
     sigmas_n = samples_a_t1$sigmas
@@ -252,15 +261,70 @@ ukf = function(I, infectivity, skip_initial = 4, ...){
   # Pad R_hat to expected length
   n = length(I) - skip_initial
   R_hat = c(rep(NA, skip_initial), avg_a_t[1, 1:n])
+  logLikelihood = compute_likelihood(y, x, avg_a_t, Tmat, P, Q)  
+  print(logLikelihood)
   return(list(
     R_hat=R_hat,
     a=a,
     P=P,
-    alpha_hat=a
+    alpha_hat=a,
+    logLikelihood=logLikelihood
   ))
 } 
 
-mukf = function(I, infectivity, skip_initial = 4, ...){
+inicializadorLogLik=function(I, infectivity, par1, par2, par3, kfilter, skip_initial=4){
+  "Bayesian search for the best hyperparameters.
+  I : double
+      Series of incidences.
+  infectivity : double
+    Infectivity series, i.e. the rolling sum of `I` weighted by `discrete_si`.
+  par1 : double
+    Initial expected value of alpha given y_t (suggested value:0) .
+  par2 : double
+    Initial variance of alpha given y_t.
+  par3 : double
+    eta's initial variance, as these errors are uncorralted the suggested value for this paramter is: 1
+
+  Returns
+  -------
+  par1 : double
+    Initial expected value of alpha given y_t (suggested value:0) .
+  par2 : double
+    Initial variance of alpha given y_t.
+  par3 : double
+    eta's initial variance, as these errors are uncorralted the suggested value for this paramter is: 1.
+  "
+  pars=c(par1, par2, par3)
+  obj = function(par) {
+    par1=par[1:3]
+    par2=par[4:6]
+    par3=par[7:9]
+    kfilter_result=kfilter(I, infectivity, par1, par2, par3, skip_initial=skip_initial)
+    objectiveFunction=-kfilter_result$logLikelihood       
+    return(objectiveFunction)
+  }
+  #TODO : a sin restriccion, para P y Q solo positivos.
+  lb=c(0, 0, 0, 0.09, 0.09, 0.09, 0.8, 0.8, 0.8)
+  ub=c(rep(Inf, 3), rep( 0.11, 3), rep( Inf, 3))
+  initial_condintions=pars
+  opt = nlminb(initial_condintions, obj , lower = lb, upper = ub)
+  pars=opt$par
+  par1=pars[1:3]
+  par2=pars[4:6]
+  par2=pars[7:9]
+  return(list(par1=par1, par2=par2, par3=par3))
+}
+
+ukf=function(I, infectivity, skip_initial = 4){
+  par1 = c(  0,   0,   0)
+  par2 = c(0.1, 0.1, 0.1)
+  par3 = c(  1,   1,   1)
+  parm=inicializadorLogLik(I, infectivity, par1, par2, par3, ukf_computation, skip_initial)
+  ukf_result=ukf_computation(I, infectivity, parm$par1, parm$par2, parm$par3, skip_initial)
+  return(ukf_result)
+}
+
+mukf_computation = function(I, infectivity, par1, par2, par3, skip_initial = 4){
   #y,x, par1,par2,par3, m=3
   "Unscentend Kalman filter
   y : list
@@ -273,9 +337,6 @@ mukf = function(I, infectivity, skip_initial = 4, ...){
     Initial variance of alpha given y_t.
   par3 : double
     eta's initial variance, as these errors are uncorralted the suggested value for this paramter is: 1"
-  par1 = c(0, 0, 0)
-  par2 = c(0.1, 0.1, 0.1)
-  par3 = c(1, 1, 1)
   m=3
   aux = length(infectivity)
   x = infectivity[skip_initial:aux]
@@ -346,13 +407,26 @@ mukf = function(I, infectivity, skip_initial = 4, ...){
   # Pad R_hat to expected length
   n = length(I) - skip_initial
   R_hat = c(rep(NA, skip_initial), avg_a_t[1, 1:n])
+
+  logLikelihood = compute_likelihood(y, x, avg_a_t, Tmat, P, Q)
+
   return(list(
     R_hat=R_hat,
     a=a,
     P=P,
-    alpha_hat=a
+    alpha_hat=a,
+    logLikelihood=logLikelihood
   ))
-} 
+}
+
+mukf=function(I, infectivity, skip_initial = 4){
+  par1 = c(  0,   0,   0)
+  par2 = c(0.1, 0.1, 0.1)
+  par3 = c(  1,   1,   1)
+  parm=inicializadorLogLik(I, infectivity, par1, par2, par3, mukf_computation, skip_initial)
+  mukf_result=mukf_computation(I, infectivity, parm$par1, parm$par2, parm$par3, skip_initial)
+  return(mukf_result)
+}
 
 # library(matlib)
 # ekf2 = function(I, infectivity, skip_initial = 1, ...) {

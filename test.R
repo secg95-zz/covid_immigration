@@ -16,7 +16,7 @@ config = list(
   si_scale = 3,
   immigration_rate = sapply(1:50, FUN=function(t) 100 - t),
   R = rep(1.2, 50),
-  mape_starts_at = 10
+  mape_starts_at = 15
 )
 config$time_span = length(config$R)
 # R estimations to be compared by Mean Absolute Percentage Error
