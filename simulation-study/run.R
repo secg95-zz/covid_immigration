@@ -9,7 +9,8 @@ EST = new.env(); source("estimation.R", local=EST)
 ESTIMATORS = list(
   epiestim = EST$epiestim,
   epiestim_immigration = EST$epiestim_immigration,
-  ekf = EST$ekf
+  ekf = EST$ekf,
+  mukf = EST$mukf
 )
 
 OUT_DIR = "simulation-study/results"
