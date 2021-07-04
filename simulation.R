@@ -21,7 +21,7 @@ simulate_gamma = function(initial_cases, time_span, si_scale, si_shape, R) {
 }
 
 simulate_with_immigrants = function(
-  discrete_si, time_span, immigration_rate, R
+  discrete_si, time_span, index_cases, immigration_rate, R
 ) {
   "
   Simulates an incidence series with immigrants in which
@@ -38,6 +38,8 @@ simulate_with_immigrants = function(
     probability of serial interval = i.
   time_span : integer
     Number of infection timesteps to be simulated.
+  index_cases : integer
+    Number of incidences in the first period of the epidemic.
   immigration_rate : double
     Series of E[X[t]].
   R : double
@@ -55,7 +57,7 @@ simulate_with_immigrants = function(
     all series represent the same point in time.
   "
   imm_infection_window = 5
-  I = 0
+  I = index_cases
   X = rpois(1, immigration_rate[1]) # Immigrant arrival series
   XI = rep(0, imm_infection_window) # Immigrant incidence series
   for (i in 1:X) {
