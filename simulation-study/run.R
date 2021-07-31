@@ -41,7 +41,7 @@ for (scenario in config$scenarios) {
     epidemic_results = list()
   )
   for (estimator_name in names(ESTIMATORS)) {
-    scenario_results$mean_mape[[estimator_name]] = 0
+    scenario_results$mean_mape[[estimator_name]] = 0 # c(-1)
   }
   for (epidemic in 1:config$simulations_per_scenario) {
     # Simulate epidemic
@@ -79,6 +79,8 @@ for (scenario in config$scenarios) {
       scenario_results$mean_mape[[estimator_name]] =
         scenario_results$mean_mape[[estimator_name]] +
         simulation_results$mape[[estimator_name]]
+      # scenario_results$mean_mape[[estimator_name]] = c(
+      #   scenario_results$mean_mape[[estimator_name]], simulation_results$mape[[estimator_name]])
     }
     scenario_results$epidemic_results[[epidemic]] = simulation_results
   }
@@ -86,6 +88,12 @@ for (scenario in config$scenarios) {
     scenario_results$mean_mape,
     function(x) {x / config$simulations_per_scenario}
   )
+  # sample = order(scenario_results$mean_mape, decreasing = TRUE)
+  # print(sample)
+  # sample = sample[1:10] #change this toa paramater
+  # scenario_results$mean_mape = sum(sample)/10
+  #    function(x) {x / config$simulations_per_scenario}
+  # )
   results[[scenario$id]] = scenario_results
   results[[scenario$id]][["scenario_id"]] = scenario$id
 }

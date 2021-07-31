@@ -4,8 +4,8 @@
   "si_scale": 9.479049,
   "si_shape": 2.349443,
   "index_cases": 10,
-  "simulations_per_scenario": 100,
-  "mape_starts_at": 10,
+  "simulations_per_scenario": 15,
+  "mape_starts_at": 15,
   "scenarios": [
     {
       "id": 1,
