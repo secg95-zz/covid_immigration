@@ -419,7 +419,7 @@ mukf_computation = function(I, infectivity, par1, par2, par3, skip_initial = 4){
   ))
 }
 
-mukf=function(I, infectivity, skip_initial = 4){
+mukf=function(I, infectivity, skip_initial = 4, ...){
   par1 = c(  0,   0,   0)
   par2 = c(0.1, 0.1, 0.1)
   par3 = c(  1,   1,   1)
