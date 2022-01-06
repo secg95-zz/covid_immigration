@@ -64,7 +64,9 @@ for (scenario in config$scenarios) {
     for (estimator_name in names(ESTIMATORS)) {
       # Estimate R_hat
       estimator = ESTIMATORS[[estimator_name]]
-      simulation_results$R_hat[[estimator_name]] = estimator(
+      tryCatch(
+      expr = {
+        simulation_results$R_hat[[estimator_name]] = estimator(
         I = simulation$I,
         XI = simulation$XI,
         discrete_si = discrete_si,
@@ -79,6 +81,11 @@ for (scenario in config$scenarios) {
       # Accumulate MAPE
       scenario_results$mean_mape[[estimator_name]] = c(
           scenario_results$mean_mape[[estimator_name]], simulation_results$mape[[estimator_name]])
+      },
+      error = function(e){ 
+        next
+      }
+      )
     }
     scenario_results$epidemic_results[[epidemic]] = simulation_results
   }
