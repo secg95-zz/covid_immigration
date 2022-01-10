@@ -36,6 +36,8 @@ discrete_si = discretize_dist(
 # Simulate multiple epidemics per scenario
 results = list()
 for (scenario in config$scenarios) {
+  print(paste("Simulating epidemics for scenario", scenario$id))
+  scenario_start_time = Sys.time()
   scenario_results = list(
     mean_mape = list(),
     epidemic_results = list()
@@ -53,7 +55,7 @@ for (scenario in config$scenarios) {
       R = scenario$R
     )
     infectivity = overall_infectivity(simulation$I, c(0, discrete_si))
-    # Estimate R using each of the available algorithmsç
+    # Estimate R using each of the available algorithms
     simulation_results = list(
       I = simulation$I,
       XI = simulation$XI,
@@ -63,13 +65,20 @@ for (scenario in config$scenarios) {
     for (estimator_name in names(ESTIMATORS)) {
       # Estimate R_hat
       estimator = ESTIMATORS[[estimator_name]]
-      simulation_results$R_hat[[estimator_name]] = estimator(
+      if (estimator_name %in% c("ekf", "mukf")) {
+        skip_initial = 2
+      } else {
+        skip_initial = 0
+      }
+      estimation_results = estimator(
         I = simulation$I,
         XI = simulation$XI,
         discrete_si = discrete_si,
         infectivity = infectivity,
-        skip_initial = config$mape_starts_at - 1
-      )$R_hat
+        skip_initial = skip_initial
+      )
+      simulation_results$R_hat[[estimator_name]] = estimation_results$R_hat
+      simulation_results$raw_output[[estimator_name]] = estimation_results
       simulation_results$mape[[estimator_name]] = mape(
         scenario$R,
         simulation_results$R_hat[[estimator_name]],
@@ -88,6 +97,9 @@ for (scenario in config$scenarios) {
   )
   results[[scenario$id]] = scenario_results
   results[[scenario$id]][["scenario_id"]] = scenario$id
+  scenario_total_time = Sys.time() - scenario_start_time
+  print(paste("Processing scenario", scenario$id, "took",
+        round(scenario_total_time / 3600, digits=2), "hours"))
 }
 # Write results to disk
 dir.create(OUT_DIR, recursive=TRUE)
