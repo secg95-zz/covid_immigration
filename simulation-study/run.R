@@ -34,7 +34,7 @@ discrete_si = discretize_dist(
   n_vals = config$T + 3
 )
 # Simulate multiple epidemics per scenario
-results = list()
+results = list(discrete_si=discrete_si)
 for (scenario in config$scenarios) {
   print(paste("Simulating epidemics for scenario", scenario$id))
   scenario_start_time = Sys.time()
@@ -59,6 +59,7 @@ for (scenario in config$scenarios) {
     simulation_results = list(
       I = simulation$I,
       XI = simulation$XI,
+      M = overall_infectivity(simulation$XI, c(0, discrete_si)),
       R_hat = list(),
       mape = list()
     )
