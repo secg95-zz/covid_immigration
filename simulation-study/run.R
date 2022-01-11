@@ -34,7 +34,7 @@ discrete_si = discretize_dist(
   n_vals = config$T + 3
 )
 # Simulate multiple epidemics per scenario
-results = list(discrete_si=discrete_si)
+results = list()
 for (scenario in config$scenarios) {
   print(paste("Simulating epidemics for scenario", scenario$id))
   scenario_start_time = Sys.time()
@@ -102,6 +102,7 @@ for (scenario in config$scenarios) {
   print(paste("Processing scenario", scenario$id, "took",
         round(scenario_total_time / 3600, digits=2), "hours"))
 }
+results$discrete_si = discrete_si
 # Write results to disk
 dir.create(OUT_DIR, recursive=TRUE)
 timestamp = format(Sys.time(), "%Y%m%d%H%M")
