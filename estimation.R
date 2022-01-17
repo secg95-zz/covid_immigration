@@ -414,7 +414,7 @@ mukf_computation = function(I, infectivity, par1, par2, par3, skip_initial = 4){
     R_hat=R_hat,
     a=a,
     P=P,
-    alpha_hat=a,
+    alpha=do.call(Map, c(f = c, a)),
     logLikelihood=logLikelihood
   ))
 }

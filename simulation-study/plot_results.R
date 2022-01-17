@@ -1,26 +1,39 @@
 library(RJSONIO)
 library(ggplot2)
+library(RColorBrewer)
 
+RESULT_ID = readline("Result set ID (looks like `202201050426`): ")
 CONFIG_FILE = "./simulation-study/config.json"
-RESULTS_FILE = "./simulation-study/results/202106271257.json"
-MAPE_PLOT_PATH = "./simulation-study/plots/mean-MAPE.png"
-R_PLOT_PATH = "./simulation-study/plots/scenario-%s-%s.png"
+RESULTS_FILE = file.path("./simulation-study/results", paste0(RESULT_ID, ".json"))
+OUTPUT_DIR = file.path("./simulation-study/plots", RESULT_ID)
+MAPE_PLOT_PATH = file.path(OUTPUT_DIR, "mean-MAPE.png")
+R_PLOT_PATH = file.path(OUTPUT_DIR, "scenario-%s-%s.png")
+colors = brewer.pal(name = "Dark2", n=8)
 ALGORITHM_COLOR_MAP = list(
-  "ekf"="blue",
-  "epiestim"="deeppink1",
-  "epiestim_immigration"='darkgreen'
+  "ekf"=colors[1],
+  "mukf"=colors[2],
+  "epiestim"=colors[3],
+  "epiestim_immigration"=colors[4]
 )
 config = fromJSON(CONFIG_FILE)
 results = fromJSON(RESULTS_FILE)
+dir.create(OUTPUT_DIR, recursive=TRUE)
 
 # Plot mean MAPE across simulations for each scenario
 full_mape_table = data.frame(matrix(ncol=3, nrow=0))
 names(full_mape_table) = c("Scenario", "Algorithm", "MAPE")
 for (scenario_results in results) {
+  scenario_results$mean_mape = lapply(
+    scenario_results$mean_mape,
+    function(x) {
+      if (is.null(x)) return(NA)
+      else return(x)
+    }
+  )
   scenario_mape_table = data.frame(
     "Scenario" = scenario_results$scenario_id,
     "Algorithm" = names(scenario_results$mean_mape),
-    "MAPE" = scenario_results$mean_mape,
+    "MAPE" = unlist(scenario_results$mean_mape),
     row.names=NULL
   )
   full_mape_table = rbind(full_mape_table, scenario_mape_table)
@@ -67,6 +80,8 @@ for (scenario_results in results) {
     # Plot R estimations for this (scenario, algorithm)
     R_hat_plot = ggplot(algorithm_R_table) +
       geom_line(data=algorithm_R_table, aes(x=t, y=value, color=label, alpha=label)) +
+      ggtitle(scenario_config$label) +
+      ylim(0, max(scenario_config$R) * 1.5) +
       ylab("R(t)") +
       scale_colour_manual(
         name="",
