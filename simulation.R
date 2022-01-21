@@ -23,7 +23,7 @@ simulate_gamma = function(initial_cases, time_span, si_scale, si_shape, R) {
 }
 
 simulate_with_immigrants = function(
-  discrete_si, T, R, global_R, global_I0, immig_rate
+  discrete_si, T, R, I0, global_R, global_I0, immig_rate
 ) {
   "
   Simulates an epidemic which starts on a global scale and develops locally due
@@ -31,7 +31,7 @@ simulate_with_immigrants = function(
   
   1. I[t] ~ Poisson(R[t] * overall_infectivity[t])
   2. global_I[t] ~ Poisson(global_R[t] * global_infectivity[t])
-  3. XI[t] ~ Poisson(global_I[t] * immig_rate)
+  3. XI[t] ~ Poisson(global_I[t] * immig_rate[t])
   
   Parameters
   ----------
@@ -44,12 +44,14 @@ simulate_with_immigrants = function(
     Number of incidences in the first period of the global epidemic.
   R : double
     Series of local reproduction numbers. Must be of length == T.
+  I0 : double
+    Number of local index cases at the start of the epidemic.
   global_R : double
     Series of global reproduction numbers. Must be of length == T.
   global_I0 : double
     Number of global index cases at the start of the epidemic.
   immig_rate : double
-    Rate of global population that immigrates daily. 
+    Series of the rate of the global population that immigrates daily. 
 
   Returns
   -------
@@ -68,11 +70,11 @@ simulate_with_immigrants = function(
   # Simulate series of incoming infected immigrants
   XI = NULL
   for (t in 1:T) {
-    next_XI_mean = global_I[t] * immig_rate
+    next_XI_mean = global_I[t] * immig_rate[t]
     XI = c(XI, rpois(1, next_XI_mean))
   }
   # Simulate local epidemic
-  I = 0
+  I = I0
   for (t in 1:(T - 1)) {
     incid_t = data.frame(list(
       local = I[1:t],
