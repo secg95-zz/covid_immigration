@@ -45,14 +45,16 @@ for (scenario in config$scenarios) {
   for (estimator_name in names(ESTIMATORS)) {
     scenario_results$mean_mape[[estimator_name]] = 0
   }
-  for (epidemic in 1:config$simulations_per_scenario) {
+  for (epidemic in 1:config$epidemics_per_scenario) {
     # Simulate epidemic
     simulation = SIM$simulate_with_immigrants(
       discrete_si = discrete_si,
-      time_span = config$T,
-      index_cases = config$index_cases,
-      immigration_rate = scenario$immigration_rate,
-      R = scenario$R
+      T = config$T,
+      R = scenario$R,
+      I0 = scenario$I0,
+      global_R = scenario$global_R,
+      global_I0 = scenario$global_I0,
+      immig_rate = scenario$immig_rate
     )
     infectivity = overall_infectivity(simulation$I, c(0, discrete_si))
     # Estimate R using each of the available algorithms
