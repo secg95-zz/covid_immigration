@@ -25,11 +25,6 @@ output_dir = file.path("./simulation-study/error-analysis", result_id)
 config = fromJSON(CONFIG_FILE)
 results = fromJSON(results_file)
 
-# Read the results of a random simulation
-algorithm = "ekf"
-scenario_results = results[[1]]
-scenario_config = config$scenarios[[1]]
-
 for (scenario_idx in 1:length(config$scenarios)) {
   scenario_results = results[[scenario_idx]]
   scenario_config = config$scenarios[[scenario_idx]]

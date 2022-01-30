@@ -1,3 +1,5 @@
+library(EpiEstim)
+
 source("discretize_dist.R")
 
 simulate_weibull = function(initial_cases, time_span, si_scale, si_shape, R) {
@@ -21,66 +23,66 @@ simulate_gamma = function(initial_cases, time_span, si_scale, si_shape, R) {
 }
 
 simulate_with_immigrants = function(
-  discrete_si, time_span, index_cases, immigration_rate, R
+  discrete_si, T, R, I0, global_R, global_I0, immig_rate
 ) {
   "
-  Simulates an incidence series with immigrants in which
-  1. I[t], the incidences at t, is a Poisson variable.
-  2. X[t], the arriving infectious immigrants at time t, is a Poisson variable.
-  3. An infectious immigrant arriving at t may have become infectious within a
-     window of length `ìmm_infectious_period` previous to their arrival, and
-     their time of infection is uniformly distributed within that window.
-     
+  Simulates an epidemic which starts on a global scale and develops locally due
+  to immigration. Its hypotheses are:
+  
+  1. I[t] ~ Poisson(R[t] * overall_infectivity[t])
+  2. global_I[t] ~ Poisson(global_R[t] * global_infectivity[t])
+  3. XI[t] ~ Poisson(global_I[t] * immig_rate[t])
+  
   Parameters
   ----------
   discrete_si : double
     Discretized distribution of the serial interval. discretete_si[i + 1] :=
     probability of serial interval = i.
-  time_span : integer
+  T : integer
     Number of infection timesteps to be simulated.
-  index_cases : integer
-    Number of incidences in the first period of the epidemic.
-  immigration_rate : double
-    Series of E[X[t]].
+  global_I0 : integer
+    Number of incidences in the first period of the global epidemic.
   R : double
-    Series of reproduction numbers. Must be of length >= time_span.
-    
+    Series of local reproduction numbers. Must be of length == T.
+  I0 : double
+    Number of local index cases at the start of the epidemic.
+  global_R : double
+    Series of global reproduction numbers. Must be of length == T.
+  global_I0 : double
+    Number of global index cases at the start of the epidemic.
+  immig_rate : double
+    Series of the rate of the global population that immigrates daily. 
+
   Returns
   -------
   I : double
     Series of incidences.
-  X : double
-    Series of arriving infectious immigrants.
   XI : double
-    Incidence series of immigrants. This one is longer than the other series,
-    but matches with them on the right end. In other words, the last elements of
-    all series represent the same point in time.
+    Incidence series of immigrants.
   "
-  imm_infection_window = 5
-  I = index_cases
-  X = rpois(1, immigration_rate[1]) # Immigrant arrival series
-  XI = rep(0, imm_infection_window) # Immigrant incidence series
-  for (i in 1:X) {
-    onset = length(XI) - sample(1:imm_infection_window, 1) + 1
-    XI[onset] = XI[onset] + 1
+  # Simulate global epidemic
+  global_I = global_I0
+  for (t in 1:(T - 1)) {
+    global_infectivity = overall_infectivity(global_I, c(0, discrete_si))
+    next_global_I_mean = global_infectivity[t] * global_R[t]
+    global_I = c(global_I, rpois(1, next_global_I_mean))
   }
-  for (t in 1:(time_span - 1)) {
-    infected_by_locals = R[t] * sum(rev(I) * discrete_si[1:t])
-    infected_by_imms = R[t] * sum(
-      rev(XI) * discrete_si[1:(t + imm_infection_window - 1)]
-      )
-    next_incidence_mean = infected_by_locals + infected_by_imms
-    I = c(I, rpois(1, next_incidence_mean))
-    X = c(X, rpois(1, immigration_rate[t + 1]))
-    XI = c(XI, 0)
-    for (i in 1:tail(X, 1)) {
-      onset = length(XI) - sample(1:imm_infection_window, 1) + 1
-      XI[onset] = XI[onset] + 1
-    }
+  # Simulate series of incoming infected immigrants
+  XI = NULL
+  for (t in 1:T) {
+    next_XI_mean = global_I[t] * immig_rate[t]
+    XI = c(XI, rpois(1, next_XI_mean))
   }
-  return(
-    list(
-      "I"=I, "XI"=XI, "X"=X
-    )
-  )
+  # Simulate local epidemic
+  I = I0
+  for (t in 1:(T - 1)) {
+    incid_t = data.frame(list(
+      local = I[1:t],
+      imported = XI[1:t]
+    ))
+    local_infectivity = overall_infectivity(incid_t, c(0, discrete_si))
+    next_I_mean = R[t] * local_infectivity[t]
+    I = c(I, rpois(1, next_I_mean))
+  }
+  return(list("I"=I, "XI"=XI))
 }

@@ -108,7 +108,7 @@ epiestim = function(I, discrete_si, ...) {
 epiestim_immigration = function(I, XI, discrete_si, ...) {
   R_hat = estimate_R(
     incid = data.frame(list(
-      local = c(rep(0, length(XI) - length(I)), I),
+      local = I,
       imported = XI
     )),
     method = "non_parametric_si", # user-specified discrete distribution
